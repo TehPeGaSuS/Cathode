@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Cathode — a terminal-style web client for WeeChat">
+  <link rel="icon" href="favicon.ico" sizes="32x32 16x16" type="image/x-icon">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <title>Cathode</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ── Top bar ─────────────────────────────────────────────────────────── -->
+  <div id="topbar">
+    <span class="logo">CATHODE<span>/irc</span></span>
+    <div class="status-pill">
+      <div id="status-dot" class="status-dot disconnected"></div>
+      <span id="status-text">DISCONNECTED</span>
+    </div>
+    <div class="topbar-spacer"></div>
+    <button id="theme-toggle"  class="topbar-btn">◐ LIGHT</button>
+    <button id="disconnect-btn" class="topbar-btn" style="display:none">⏻ QUIT</button>
+  </div>
+
+  <!-- ── Connect screen ──────────────────────────────────────────────────── -->
+  <div id="connect-screen">
+
+    <!-- Shown only when served over HTTPS — ws:// is blocked in that context -->
+    <div id="http-notice" style="display:none">
+      <span class="http-notice-text">
+        ⚠ This page is served over <strong>HTTPS</strong> — only <strong>wss://</strong> relays are reachable.
+        Put your WeeChat relay behind a TLS reverse proxy (nginx, Caddy, Apache)
+        or a <a href="https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/" target="_blank" rel="noopener">Zero Trust tunnel</a>
+        — both forward to WeeChat over plain <code>ws://</code> locally.
+        See the proxy configs in the <code>proxy/</code> folder.
+      </span>
+    </div>
+
+    <div class="connect-box">
+      <div class="connect-box-header">WEECHAT RELAY — API PROTOCOL</div>
+      <div class="connect-box-body">
+
+        <div class="field-row">
+          <div class="field">
+            <label for="host">HOST</label>
+            <input id="host" type="text" placeholder="irc.example.com" autocomplete="off" spellcheck="false">
+          </div>
+          <div class="field short">
+            <label for="port">PORT</label>
+            <input id="port" type="number" value="9000" min="1" max="65535">
+          </div>
+        </div>
+
+        <div id="port-warning"></div>
+
+        <div class="field">
+          <label for="password">RELAY PASSWORD</label>
+          <input id="password" type="password" placeholder="••••••••" autocomplete="current-password">
+        </div>
+
+        <label class="checkbox-row">
+          <input id="tls" type="checkbox" checked>
+          USE TLS (wss://)
+          <span id="tls-locked-note" style="display:none"> — required on HTTPS pages</span>
+        </label>
+
+        <div id="conn-error"></div>
+
+        <div class="connect-actions">
+          <button id="connect-btn" class="btn-primary">CONNECT</button>
+          <button id="cert-btn"    class="btn-secondary">⚠ CERT</button>
+        </div>
+
+        <p class="cert-hint">
+          Using a self-signed cert? Click ⚠ CERT to open the relay URL in a new
+          tab, accept the browser warning, then return here and connect.
+        </p>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Chat screen ─────────────────────────────────────────────────────── -->
+  <div id="chat-screen" style="display:none">
+
+    <!-- Buffer sidebar -->
+    <div id="sidebar">
+      <div id="sidebar-header">BUFFERS</div>
+      <div id="buffer-list"></div>
+    </div>
+
+    <!-- Main area -->
+    <div id="main">
+      <div id="chat-header">
+        <span id="chat-title"></span>
+        <span id="chat-topic"></span>
+      </div>
+      <div id="messages"></div>
+      <div id="inputbar">
+        <span id="input-prompt">›</span>
+        <input id="chat-input" type="text" placeholder="type a message or /command" autocomplete="off" spellcheck="false">
+        <button id="send-btn">SEND</button>
+      </div>
+    </div>
+
+    <!-- Nicklist panel -->
+    <div id="nicklist-panel">
+      <div id="nicklist-header">NICKS</div>
+      <div id="nicklist"></div>
+    </div>
+
+  </div>
+
+  <!-- ── Footer ──────────────────────────────────────────────────────────── -->
+  <div id="footer">
+    Cathode — Inspired by <a href="https://github.com/glowing-bear/glowing-bear" target="_blank" rel="noopener">Glowing Bear</a>
+    &nbsp;·&nbsp; <a href="https://github.com/weechat/weechat" target="_blank" rel="noopener">WeeChat</a>
+  </div>
+
+</div><!-- /#app -->
+
+<script src="app.js" type="module"></script>
+
+</body>
+</html>
