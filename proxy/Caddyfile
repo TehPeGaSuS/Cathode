@@ -1,0 +1,56 @@
+# Caddyfile — Cathode + WeeChat relay reverse proxy
+#
+# This config does two things:
+#   1. Serves the Cathode static files at the root
+#   2. Proxies /api/* to WeeChat's relay (API protocol) with WebSocket support
+#
+# Caddy handles TLS automatically (Let's Encrypt) when you use a real domain.
+# Replace cathode.example.com with your actual domain.
+
+cathode.example.com {
+
+    # Serve Cathode static files
+    root * /var/www/cathode
+    file_server
+
+    # Proxy WeeChat relay API (REST + WebSocket)
+    # WeeChat listens on localhost:9000 — adjust if needed
+    handle /api* {
+        reverse_proxy localhost:9000 {
+            # Pass the real client IP to WeeChat
+            header_up X-Real-IP {remote_host}
+
+            # Required for WebSocket upgrade
+            transport http {
+                # If WeeChat relay uses a self-signed cert on localhost,
+                # disable verification for the backend connection
+                # tls_insecure_skip_verify
+            }
+        }
+    }
+
+    # Security headers
+    header {
+        X-Content-Type-Options    nosniff
+        X-Frame-Options           DENY
+        Referrer-Policy           strict-origin-when-cross-origin
+    }
+
+    # Optional: enable compression for static assets
+    encode gzip
+}
+
+
+# ── Local / LAN setup (no domain, plain HTTP) ────────────────────────────────
+# If you're running on a LAN and don't have a domain, use this instead.
+# Note: browsers will require ws:// (not wss://) and you must uncheck TLS
+# in Cathode's connect screen.
+#
+# :8080 {
+#     root * /var/www/cathode
+#     file_server
+#
+#     handle /api* {
+#         reverse_proxy localhost:9000
+#     }
+# }
