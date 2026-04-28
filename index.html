@@ -21,7 +21,8 @@
       <span id="status-text">DISCONNECTED</span>
     </div>
     <div class="topbar-spacer"></div>
-    <button id="theme-toggle"  class="topbar-btn">◐ LIGHT</button>
+    <button id="settings-btn"   class="topbar-btn">⚙ SETTINGS</button>
+    <button id="theme-toggle"   class="topbar-btn">◐ LIGHT</button>
     <button id="disconnect-btn" class="topbar-btn" style="display:none">⏻ QUIT</button>
   </div>
 
@@ -32,10 +33,7 @@
     <div id="http-notice" style="display:none">
       <span class="http-notice-text">
         ⚠ This page is served over <strong>HTTPS</strong> — only <strong>wss://</strong> relays are reachable.
-        Put your WeeChat relay behind a TLS reverse proxy (nginx, Caddy, Apache)
-        or a <a href="https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/" target="_blank" rel="noopener">Zero Trust tunnel</a>
-        — both forward to WeeChat over plain <code>ws://</code> locally.
-        See the proxy configs in the <code>proxy/</code> folder.
+        Make sure your WeeChat relay is accessible over TLS.
       </span>
     </div>
 
@@ -90,6 +88,9 @@
     <div id="sidebar">
       <div id="sidebar-header">BUFFERS</div>
       <div id="buffer-list"></div>
+      <div id="sidebar-footer">
+        <button id="sidebar-join-btn" class="sidebar-footer-btn">＋ JOIN</button>
+      </div>
     </div>
 
     <!-- Main area -->
@@ -97,11 +98,14 @@
       <div id="chat-header">
         <span id="chat-title"></span>
         <span id="chat-topic"></span>
+        <button id="smartfilter-btn" class="header-btn" style="display:none">FILTER: ON</button>
       </div>
       <div id="messages"></div>
       <div id="inputbar">
         <span id="input-prompt">›</span>
         <input id="chat-input" type="text" placeholder="type a message or /command" autocomplete="off" spellcheck="false">
+        <button id="upload-btn" class="inputbar-btn" title="Upload file">📎</button>
+        <input id="upload-file" type="file" style="display:none" multiple>
         <button id="send-btn">SEND</button>
       </div>
     </div>
@@ -122,7 +126,62 @@
 
 </div><!-- /#app -->
 
-<script src="app.js" type="module"></script>
+<!-- ── Drag overlay ──────────────────────────────────────────────────────── -->
+<div id="drag-overlay" style="display:none">
+  <div class="drag-overlay-inner">DROP TO UPLOAD</div>
+</div>
+
+<!-- ── Settings panel ───────────────────────────────────────────────────── -->
+<div id="settings-overlay" style="display:none">
+  <div id="settings-panel">
+    <div class="settings-header">
+      <span>SETTINGS</span>
+      <button id="settings-close">✕</button>
+    </div>
+    <div class="settings-body">
+
+      <div class="settings-section" id="settings-upload-section">UPLOAD</div>
+
+      <div class="field">
+        <label for="s-upload-backend">BACKEND</label>
+        <select id="s-upload-backend">
+          <option value="none">Disabled</option>
+          <option value="filehost">Single PHP Filehost</option>
+          <option value="imgur">Imgur</option>
+        </select>
+      </div>
+
+      <div id="s-filehost-opts">
+        <div class="field">
+          <label for="s-filehost-url">FILEHOST URL</label>
+          <input id="s-filehost-url" type="text" placeholder="https://files.example.com/" spellcheck="false">
+        </div>
+      </div>
+
+      <div id="s-imgur-opts" style="display:none">
+        <div class="field">
+          <label for="s-imgur-key">IMGUR CLIENT ID</label>
+          <input id="s-imgur-key" type="text" placeholder="your_client_id" spellcheck="false">
+        </div>
+      </div>
+
+      <div class="settings-section" style="margin-top:16px">DISPLAY</div>
+
+      <div class="field">
+        <label for="s-prefix-max">PREFIX ALIGN MAX (weechat.look.prefix_align_max)</label>
+        <input id="s-prefix-max" type="number" min="4" max="64" value="16">
+      </div>
+
+      <div class="settings-actions">
+        <button id="settings-save" class="btn-primary">SAVE</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="js/main.js" type="module"></script>
 
 </body>
 </html>
