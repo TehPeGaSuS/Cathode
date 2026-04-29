@@ -1,4 +1,5 @@
 import { state, saveSettings } from './state.js';
+import { parseId } from './connection.js';
 import { ansiToHtml, nickColorToCss, safeFg } from './ansi.js';
 import { renderMessages, renderChatHeader, hideNewMsgBanner, appendLine } from './chat.js';
 import { maybeNotify, updateTitle } from './notifications.js';
@@ -9,27 +10,32 @@ const esc = s  => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/
 // ─── Buffer events ────────────────────────────────────────────────────────────
 export function onBufOpened(buf) {
   if (!buf) return;
-  state.buffers.set(buf.id, { ...buf, lines: buf.lines||[], nicks:{}, unread:0, highlight:0 });
-  if (!state.smartFilter.has(buf.id)) state.smartFilter.set(buf.id, true);
+  const id = parseId(buf.id);
+  buf = { ...buf, id };
+  state.buffers.set(id, { ...buf, lines: buf.lines||[], nicks:{}, unread:0, highlight:0 });
+  if (!state.smartFilter.has(id)) state.smartFilter.set(id, true);
   rebuildBufList();
-  if (state.activeBufferId == null) activateBuffer(buf.id);
+  if (state.activeBufferId == null) activateBuffer(id);
 }
 
 export function onBufUpdated(buf) {
   if (!buf) return;
-  const b = state.buffers.get(buf.id);
+  const id = parseId(buf.id);
+  const b  = state.buffers.get(id);
   if (!b) return;
-  Object.assign(b, buf);
-  paintNode(buf.id);
-  if (state.activeBufferId === buf.id) renderChatHeader();
+  Object.assign(b, { ...buf, id });
+  paintNode(id);
+  if (state.activeBufferId === id) renderChatHeader();
 }
 
-export function onBufCleared(id) {
-  const b = state.buffers.get(id);
+export function onBufCleared(rawId) {
+  const id = parseId(rawId);
+  const b  = state.buffers.get(id);
   if (b) { b.lines = []; if (state.activeBufferId === id) el('messages').innerHTML = ''; }
 }
 
-export function onBufClosed(id) {
+export function onBufClosed(rawId) {
+  const id = parseId(rawId);
   state.buffers.delete(id);
   removeNode(id);
   if (state.activeBufferId === id) {
@@ -39,9 +45,10 @@ export function onBufClosed(id) {
   }
 }
 
-export function onLineAdded(id, line) {
+export function onLineAdded(rawId, line) {
   if (!line) return;
-  const b = state.buffers.get(id);
+  const id = parseId(rawId);
+  const b  = state.buffers.get(id);
   if (!b) return;
   b.lines.push(line);
   if (state.activeBufferId === id) {
@@ -62,22 +69,25 @@ export function collectNicks(group, out) {
   for (const g of (group.groups || [])) collectNicks(g, out);
 }
 
-export function onNickAdded(id, nick) {
-  const b = state.buffers.get(id);
+export function onNickAdded(rawId, nick) {
+  const id = parseId(rawId);
+  const b  = state.buffers.get(id);
   if (!b || !nick) return;
   b.nicks[nick.id] = nick;
   if (state.activeBufferId === id) renderNicklist(b);
 }
 
-export function onNickRemoved(id, nick) {
-  const b = state.buffers.get(id);
+export function onNickRemoved(rawId, nick) {
+  const id = parseId(rawId);
+  const b  = state.buffers.get(id);
   if (!b || !nick) return;
   delete b.nicks[nick.id];
   if (state.activeBufferId === id) renderNicklist(b);
 }
 
-export function onGroupChanged(id) {
-  const b = state.buffers.get(id);
+export function onGroupChanged(rawId) {
+  const id = parseId(rawId);
+  const b  = state.buffers.get(id);
   if (b && state.activeBufferId === id) renderNicklist(b);
 }
 
@@ -233,7 +243,7 @@ function paintNode(id) {
   const classes  = ['buffer-item'];
   if (isServer)                       classes.push('buf-server');
   if (indent)                         classes.push('buf-indented');
-  if (buf.id === state.activeBufferId) classes.push('active');
+  if (String(buf.id) === String(state.activeBufferId)) classes.push('active');
   if (buf.highlight > 0)              classes.push('highlight');
   else if (buf.unread > 0)            classes.push('unread');
   node.className = classes.join(' ');
@@ -268,7 +278,7 @@ function makeNode(item) {
   node.dataset.id       = String(item.buf.id);
   node.dataset.isServer = isServer ? '1' : '0';
   node.dataset.indent   = indent   ? '1' : '0';
-  node.addEventListener('click', () => activateBuffer(Number(node.dataset.id)));
+  node.addEventListener('click', () => activateBuffer(node.dataset.id));
   const classes = ['buffer-item'];
   if (isServer) classes.push('buf-server');
   if (indent)   classes.push('buf-indented');

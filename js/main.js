@@ -72,7 +72,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const btn = e.target.closest('.buf-close');
     if (!btn) return;
     e.stopPropagation();
-    const id  = Number(btn.dataset.id);
+    const id  = btn.dataset.id;   // string key matching state.buffers Map
     const buf = state.buffers.get(id);
     if (!buf) return;
     wsSend({ request: 'POST /api/input', body: { buffer_name: buf.name, command: '/close' } });
