@@ -81,8 +81,11 @@ function doTabComplete() {
       candidates = Object.values(buf.nicks || {}).map(n => n.name);
     }
 
-    tab.matches = candidates.filter(c => c.toLowerCase().startsWith(lower));
-    tab.matches.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+    tab.matches = wantEmoji
+      ? candidates                    // already filtered and sorted during construction
+      : candidates.filter(c => c.toLowerCase().startsWith(lower));
+    if (!wantEmoji)
+      tab.matches.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
     tab.pos  = -1;
     tab.stem = lower;
     if (tab.matches.length === 0) return;
@@ -90,9 +93,9 @@ function doTabComplete() {
 
   tab.pos = (tab.pos + 1) % tab.matches.length;
   const match    = tab.matches[tab.pos];
-  // Emoji matches are stored as "🔥fire" — split glyph from name
+  // Emoji matches are stored as "🔥fire" — extract just the glyph (may be multi-codepoint)
   const isEmoji  = /^\p{Emoji}/u.test(match);
-  const insert   = isEmoji ? match[0] : match;   // just the glyph, no name
+  const insert   = isEmoji ? [...match][0] : match;  // spread handles multi-byte glyphs
   const atStart  = before.trimStart() === token;
   const isNick   = !insert.startsWith('#') && !isEmoji;
   const suffix   = (atStart && isNick) ? ': ' : ' ';
