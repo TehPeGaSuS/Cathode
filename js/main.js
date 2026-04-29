@@ -7,7 +7,7 @@ import { connect, disconnect, wsSend }              from './connection.js';
 import { toggleSmartFilter, applyPrefixWidth }      from './chat.js';
 import { sendInput, onInputKey }                    from './input.js';
 import { uploadFile, initDragDrop }                 from './upload.js';
-import { activateBuffer }                           from './buffers.js';
+import { setWsSend }                               from './buffers.js';
 
 const el = id => document.getElementById(id);
 
@@ -50,6 +50,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ── Connection ────────────────────────────────────────────────────────────
+  // Wire wsSend into buffers module so nick menu commands work
+  setWsSend(wsSend);
+
   el('connect-btn')   .addEventListener('click',   connect);
   el('disconnect-btn').addEventListener('click',   disconnect);
   ['host','port','password'].forEach(id =>

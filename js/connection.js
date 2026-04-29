@@ -1,7 +1,6 @@
 import { state, saveSettings, BLOCKED_PORTS } from './state.js';
 import { initNotifications } from './notifications.js';
-import { applyPrefixWidth } from './chat.js';
-import { sysMsg } from './chat.js';
+import { applyPrefixWidth, sysMsg } from './chat.js';
 import {
   onBufOpened, onBufUpdated, onBufCleared, onBufClosed,
   onLineAdded, onNickAdded, onNickRemoved, onGroupChanged,
