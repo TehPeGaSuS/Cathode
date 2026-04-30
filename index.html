@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Cathode — a terminal-style web client for WeeChat">
+  <link rel="icon" href="favicon.ico" sizes="32x32 16x16" type="image/x-icon">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <title>Cathode</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- Emoji picker Web Component — loaded from CDN, no build step needed -->
+  <script type="module" src="https://cdn.jsdelivr.net/npm/emoji-picker-element@1/index.js"></script>
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ── Top bar ─────────────────────────────────────────────────────────── -->
+  <div id="topbar">
+    <span class="logo">CATHODE<span>/irc</span></span>
+    <div class="status-pill">
+      <div id="status-dot" class="status-dot disconnected"></div>
+      <span id="status-text">DISCONNECTED</span>
+    </div>
+    <div class="topbar-spacer"></div>
+    <button id="settings-btn"   class="topbar-btn">⚙ SETTINGS</button>
+    <button id="theme-toggle"   class="topbar-btn">◐ LIGHT</button>
+    <button id="disconnect-btn" class="topbar-btn" style="display:none">⏻ QUIT</button>
+  </div>
+
+  <!-- ── Connect screen ──────────────────────────────────────────────────── -->
+  <div id="connect-screen">
+
+    <!-- Shown only when served over HTTPS — ws:// is blocked in that context -->
+    <div id="http-notice" style="display:none">
+      <span class="http-notice-text">
+        ⚠ This page is served over <strong>HTTPS</strong> — only <strong>wss://</strong> relays are reachable.
+        Make sure your WeeChat relay is accessible over TLS.
+      </span>
+    </div>
+
+    <div class="connect-box">
+      <div class="connect-box-header">WEECHAT RELAY — API PROTOCOL</div>
+      <div class="connect-box-body">
+
+        <div class="field-row">
+          <div class="field">
+            <label for="host">HOST</label>
+            <input id="host" type="text" placeholder="irc.example.com" autocomplete="off" spellcheck="false">
+          </div>
+          <div class="field short">
+            <label for="port">PORT</label>
+            <input id="port" type="number" value="9000" min="1" max="65535">
+          </div>
+        </div>
+
+        <div id="port-warning"></div>
+
+        <div class="field">
+          <label for="password">RELAY PASSWORD</label>
+          <input id="password" type="password" placeholder="••••••••" autocomplete="current-password">
+        </div>
+
+        <label class="checkbox-row">
+          <input id="tls" type="checkbox" checked>
+          USE TLS (wss://)
+          <span id="tls-locked-note" style="display:none"> — required on HTTPS pages</span>
+        </label>
+
+        <div id="conn-error"></div>
+
+        <div class="connect-actions">
+          <button id="connect-btn" class="btn-primary">CONNECT</button>
+          <button id="cert-btn"    class="btn-secondary">⚠ CERT</button>
+        </div>
+
+        <p class="cert-hint">
+          Using a self-signed cert? Click ⚠ CERT to open the relay URL in a new
+          tab, accept the browser warning, then return here and connect.
+        </p>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Chat screen ─────────────────────────────────────────────────────── -->
+  <div id="chat-screen" style="display:none">
+
+    <!-- Buffer sidebar -->
+    <div id="sidebar">
+      <div id="sidebar-header">BUFFERS</div>
+      <div id="buffer-list"></div>
+      <div id="sidebar-footer">
+        <button id="sidebar-join-btn" class="sidebar-footer-btn">＋ JOIN</button>
+      </div>
+    </div>
+
+    <!-- Main area -->
+    <div id="main">
+      <div id="chat-header">
+        <span id="chat-title"></span>
+        <span id="chat-topic"></span>
+        <button id="smartfilter-btn" class="header-btn" style="display:none">FILTER: ON</button>
+      </div>
+      <div id="messages"></div>
+      <div id="inputbar">
+        <span id="input-prompt">›</span>
+        <input id="chat-input" type="text" placeholder="type a message or /command" autocomplete="off" spellcheck="false">
+        <button id="emoji-btn" class="inputbar-btn" title="Emoji picker">😊</button>
+        <button id="upload-btn" class="inputbar-btn" title="Upload file">📎</button>
+        <input id="upload-file" type="file" style="display:none" multiple>
+        <button id="send-btn">SEND</button>
+      </div>
+      <!-- Emoji picker popup — hidden until emoji-btn clicked -->
+      <div id="emoji-popup" style="display:none">
+        <emoji-picker id="emoji-picker"></emoji-picker>
+      </div>
+    </div>
+
+    <!-- Nicklist panel -->
+    <div id="nicklist-panel">
+      <div id="nicklist-header">NICKS</div>
+      <div id="nicklist"></div>
+    </div>
+
+  </div>
+
+  <!-- ── Footer ──────────────────────────────────────────────────────────── -->
+  <div id="footer">
+    Cathode — Inspired by <a href="https://github.com/glowing-bear/glowing-bear" target="_blank" rel="noopener">Glowing Bear</a>
+    &nbsp;·&nbsp; <a href="https://github.com/weechat/weechat" target="_blank" rel="noopener">WeeChat</a>
+  </div>
+
+</div><!-- /#app -->
+
+<!-- ── Drag overlay ──────────────────────────────────────────────────────── -->
+<div id="drag-overlay" style="display:none">
+  <div class="drag-overlay-inner">DROP TO UPLOAD</div>
+</div>
+
+<!-- ── Settings panel ───────────────────────────────────────────────────── -->
+<div id="settings-overlay" style="display:none">
+  <div id="settings-panel">
+    <div class="settings-header">
+      <span>SETTINGS</span>
+      <button id="settings-close">✕</button>
+    </div>
+    <div class="settings-body">
+
+      <div class="settings-section" id="settings-upload-section">UPLOAD</div>
+
+      <div class="field">
+        <label for="s-upload-backend">BACKEND</label>
+        <select id="s-upload-backend">
+          <option value="none">Disabled</option>
+          <option value="filehost">Single PHP Filehost</option>
+          <option value="imgur">Imgur</option>
+        </select>
+      </div>
+
+      <div id="s-filehost-opts">
+        <div class="field">
+          <label for="s-filehost-url">FILEHOST URL</label>
+          <input id="s-filehost-url" type="text" placeholder="https://files.example.com/" spellcheck="false">
+        </div>
+      </div>
+
+      <div id="s-imgur-opts" style="display:none">
+        <div class="field">
+          <label for="s-imgur-key">IMGUR CLIENT ID</label>
+          <input id="s-imgur-key" type="text" placeholder="your_client_id" spellcheck="false">
+        </div>
+      </div>
+
+      <div class="settings-section" style="margin-top:16px">DISPLAY</div>
+
+      <div class="field">
+        <label for="s-prefix-max">PREFIX ALIGN MAX (weechat.look.prefix_align_max)</label>
+        <input id="s-prefix-max" type="number" min="4" max="64" value="16">
+      </div>
+
+      <div class="settings-actions">
+        <button id="settings-save" class="btn-primary">SAVE</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="vendor/emoji-mart.js"></script>
+<script src="js/main.js" type="module"></script>
+
+</body>
+</html>
