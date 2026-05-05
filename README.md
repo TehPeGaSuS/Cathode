@@ -1,3 +1,7 @@
+> [!WARNING]
+> This was **definitely** vibecoded. Use at your own risk.\
+> That said, I've been using it almost daily without any major issues.
+
 # Cathode
 
 A terminal-style web client for [WeeChat](https://weechat.org/), using the
