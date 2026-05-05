@@ -19,7 +19,7 @@ window.CATHODE_CONFIG = {
   // notifyServerBuffers: false — suppress notifications from IRC server buffers
   //   (type=server). Set to false if your server buffers are set to
   //   "notify none" in WeeChat. Default: true (don't suppress).
-  notifyServerBuffers: false,
+  notifyServerBuffers: true,
 
   // ── Upload backend ────────────────────────────────────────────────────────
   // 'none'     — disable file upload entirely (default)
