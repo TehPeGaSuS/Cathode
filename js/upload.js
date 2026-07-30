@@ -39,10 +39,26 @@ async function uploadToFilehost(file, baseUrl) {
   const form = new FormData();
   form.append('file', file, file.name);
   const res  = await fetch(url, { method: 'POST', body: form });
+  if (res.status === 413) throw new Error('File too large for the upload server.');
   if (!res.ok) throw new Error(`Server returned ${res.status}`);
   const text = (await res.text()).trim();
-  if (!text.startsWith('http')) throw new Error(`Unexpected response: ${text}`);
+  if (!text.startsWith('http')) throw new Error(summarizeUnexpectedResponse(text));
   return text;
+}
+
+// Turn an unexpected (non-URL) filehost response — an HTML info/error page,
+// a PHP warning dump, etc. — into a short plain-text summary instead of
+// dumping the raw markup into the UI.
+function summarizeUnexpectedResponse(text) {
+  const isHtml = /^<(!doctype|html)/i.test(text);
+  if (!isHtml) return `Unexpected response: ${text.slice(0, 200)}`;
+  const plain = text
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return `Upload rejected by server (file may exceed the size limit): ${plain.slice(0, 200)}`;
 }
 
 async function uploadToImgur(file, clientId) {
