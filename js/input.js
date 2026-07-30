@@ -27,12 +27,18 @@ async function searchEmoji(stem) {
 
 const hist = { lines: [], pos: -1, draft: '' };
 const tab  = { matches: [], pos: -1, stem: '' };
+const MAX_HIST_LINES = 500;
+
+// Bumped on every keystroke so an in-flight async emoji search can tell,
+// once it resolves, whether the user has typed/moved since it started.
+let inputGeneration = 0;
 
 export function sendInput(wsSend) {
   const buf  = state.buffers.get(state.activeBufferId);
   const text = el('chat-input').value.trim();
   if (!buf || !text) return;
   hist.lines.unshift(text);
+  if (hist.lines.length > MAX_HIST_LINES) hist.lines.length = MAX_HIST_LINES;
   hist.pos    = -1;
   tab.matches = [];
   tab.pos     = -1;
@@ -46,6 +52,7 @@ export function onInputKey(e, wsSend) {
     doTabComplete();
     return;
   }
+  inputGeneration++;
   if (e.key !== 'Shift') { tab.matches = []; tab.pos = -1; }
 
   if (e.key === 'Enter' && !e.shiftKey) {
@@ -84,8 +91,13 @@ function doTabComplete() {
 
     if (wantEmoji) {
       const stem = token.slice(1).replace(/:$/, '').toLowerCase();
+      const gen  = inputGeneration;
       // Async: kick off search and return; next Tab press will use the results
       searchEmoji(stem).then(results => {
+        // Bail if the user typed/moved the caret since this search started —
+        // val/caret/before/token below would otherwise apply a completion
+        // at a position the user has since left.
+        if (gen !== inputGeneration || input.value !== val || input.selectionStart !== caret) return;
         tab.matches = results;
         tab.stem    = lower;
         tab.pos     = -1;

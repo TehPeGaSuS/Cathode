@@ -33,6 +33,10 @@ document.addEventListener('DOMContentLoaded', () => {
   if (s.host) el('host').value                = s.host;
   if (s.port) el('port').value                = s.port;
   if (s.tls  !== undefined) el('tls').checked = s.tls;
+  if (s.rememberPass) {
+    el('remember-pass').checked = true;
+    if (s.pass) el('password').value = s.pass;
+  }
   if (s.prefixAlignMax) state.prefixAlignMax  = s.prefixAlignMax;
 
   // ── Initial UI state ──────────────────────────────────────────────────────
@@ -76,13 +80,34 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // ── Sidebar join button ───────────────────────────────────────────────────
-  el('sidebar-join-btn').addEventListener('click', () => {
-    const ch  = prompt('Channel to join (e.g. #weechat):');
+  const joinBtn   = el('sidebar-join-btn');
+  const joinInput = el('sidebar-join-input');
+
+  function openJoinInput() {
+    joinBtn.style.display   = 'none';
+    joinInput.style.display = '';
+    joinInput.value = '';
+    joinInput.focus();
+  }
+  function closeJoinInput() {
+    joinInput.style.display = 'none';
+    joinBtn.style.display   = '';
+  }
+  function submitJoin() {
+    const ch = joinInput.value.trim();
+    closeJoinInput();
     if (!ch) return;
     const buf = state.buffers.get(state.activeBufferId);
     if (!buf) return;
     wsSend({ request: 'POST /api/input', body: { buffer_name: buf.name, command: '/join ' + ch } });
+  }
+
+  joinBtn.addEventListener('click', openJoinInput);
+  joinInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter')  { e.preventDefault(); submitJoin(); }
+    else if (e.key === 'Escape') { e.preventDefault(); closeJoinInput(); }
   });
+  joinInput.addEventListener('blur', closeJoinInput);
 
   // ── Media preview (document-level delegation) ─────────────────────────────
   document.addEventListener('click', e => {

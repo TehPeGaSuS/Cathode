@@ -468,6 +468,20 @@ a:hover { text-decoration: underline; }
   color: var(--fg);
   background: var(--bg-hover);
 }
+#sidebar-join-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--bg-input);
+  border: 1px solid var(--border-l);
+  color: var(--fg);
+  font-family: inherit;
+  font-size: 12px;
+  padding: 5px 6px;
+}
+#sidebar-join-input:focus {
+  outline: none;
+  border-color: var(--fg-dim);
+}
 
 .buffer-item {
   display: flex;
@@ -849,39 +863,6 @@ a:hover { text-decoration: underline; }
   background: var(--bg-panel);
   flex-shrink: 0;
   height: 38px;
-}
-
-/* ─── Emoji picker popup ─────────────────────────────────────────────────── */
-#emoji-popup {
-  position: absolute;
-  bottom: 42px;   /* sits just above the inputbar */
-  right: 80px;
-  z-index: 200;
-  filter: drop-shadow(0 4px 16px rgba(0,0,0,0.5));
-}
-
-/* Wire Cathode's theme variables into emoji-picker-element's CSS custom props */
-emoji-picker {
-  --background:           var(--bg-panel);
-  --border-color:         var(--border);
-  --border-radius:        0;
-  --button-active-background: var(--bg-active);
-  --button-hover-background:  var(--bg-hover);
-  --category-emoji-padding:   .25rem;
-  --emoji-padding:        .25rem;
-  --emoji-size:           1.4rem;
-  --indicator-color:      var(--fg);
-  --input-border-color:   var(--border);
-  --input-border-radius:  0;
-  --input-font-color:     var(--fg);
-  --input-placeholder-color: var(--fg-dim);
-  --outline-color:        var(--border-l);
-  --search-background:    var(--bg-input);
-  --text-color:           var(--fg);
-  --category-font-color:  var(--fg-dim);
-  font-family: 'IBM Plex Mono', monospace;
-  width: 320px;
-  height: 360px;
 }
 
 #input-prompt {

@@ -7,6 +7,9 @@ import { maybeNotify, updateTitle } from './notifications.js';
 const el  = id => document.getElementById(id);
 const esc = s  => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
+// Cap in-memory scrollback per buffer to avoid unbounded growth on long sessions.
+const MAX_LINES = 2000;
+
 // ─── Buffer events ────────────────────────────────────────────────────────────
 export function onBufOpened(buf) {
   if (!buf) return;
@@ -51,6 +54,7 @@ export function onLineAdded(rawId, line) {
   const b  = state.buffers.get(id);
   if (!b) return;
   b.lines.push(line);
+  if (b.lines.length > MAX_LINES) b.lines.splice(0, b.lines.length - MAX_LINES);
   if (state.activeBufferId === id) {
     appendLine(line);
   } else {
@@ -74,7 +78,7 @@ export function onNickAdded(rawId, nick) {
   const b  = state.buffers.get(id);
   if (!b || !nick) return;
   b.nicks[nick.id] = nick;
-  if (state.activeBufferId === id) renderNicklist(b);
+  if (state.activeBufferId === id) scheduleRenderNicklist(b);
 }
 
 export function onNickRemoved(rawId, nick) {
@@ -82,16 +86,28 @@ export function onNickRemoved(rawId, nick) {
   const b  = state.buffers.get(id);
   if (!b || !nick) return;
   delete b.nicks[nick.id];
-  if (state.activeBufferId === id) renderNicklist(b);
+  if (state.activeBufferId === id) scheduleRenderNicklist(b);
 }
 
 export function onGroupChanged(rawId) {
   const id = parseId(rawId);
   const b  = state.buffers.get(id);
-  if (b && state.activeBufferId === id) renderNicklist(b);
+  if (b && state.activeBufferId === id) scheduleRenderNicklist(b);
 }
 
 // ─── Nicklist ─────────────────────────────────────────────────────────────────
+// Nick events (join/part bursts, netsplits) can fire dozens of times per
+// frame; coalesce them into a single rebuild via rAF instead of rebuilding
+// the whole DOM list on every individual event.
+let nicklistRaf = null;
+function scheduleRenderNicklist(buf) {
+  if (nicklistRaf != null) return;
+  nicklistRaf = requestAnimationFrame(() => {
+    nicklistRaf = null;
+    if (state.activeBufferId === buf.id) renderNicklist(buf);
+  });
+}
+
 export function renderNicklist(buf) {
   const box   = el('nicklist');
   box.innerHTML = '';
@@ -102,7 +118,10 @@ export function renderNicklist(buf) {
   });
   for (const nick of nicks) {
     const row = document.createElement('div');
-    row.className = 'nick-item';
+    row.className    = 'nick-item';
+    row.tabIndex      = 0;
+    row.setAttribute('role', 'button');
+    row.setAttribute('aria-label', `${nick.name} — open actions`);
     const pfxChar = (nick.prefix && nick.prefix.trim()) ? esc(nick.prefix) : ' ';
     const pfxHtml = nick.prefix_color
       ? `<span class="nick-pfx" style="color:${nickColorToCss(nick.prefix_color)}">${pfxChar}</span>`
@@ -112,6 +131,9 @@ export function renderNicklist(buf) {
       : `<span class="nick-name">${esc(nick.name)}</span>`;
     row.innerHTML = pfxHtml + nameHtml;
     row.addEventListener('click', () => openNickMenu(nick, buf));
+    row.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openNickMenu(nick, buf); }
+    });
     box.appendChild(row);
   }
 }
@@ -233,6 +255,14 @@ export function rebuildBufList() {
   }
 }
 
+// Full teardown of the buffer-list DOM/state, e.g. on user disconnect —
+// keeps bufNodes in sync with the DOM instead of leaving it holding
+// references to nodes that connection.js cleared out from under it.
+export function clearBufList() {
+  bufNodes.clear();
+  el('buffer-list').innerHTML = '';
+}
+
 function paintNode(id) {
   const node = bufNodes.get(bKey(id));
   if (!node) return;
@@ -243,7 +273,7 @@ function paintNode(id) {
   const classes  = ['buffer-item'];
   if (isServer)                       classes.push('buf-server');
   if (indent)                         classes.push('buf-indented');
-  if (String(buf.id) === String(state.activeBufferId)) classes.push('active');
+  if (buf.id === state.activeBufferId) classes.push('active');
   if (buf.highlight > 0)              classes.push('highlight');
   else if (buf.unread > 0)            classes.push('unread');
   node.className = classes.join(' ');
@@ -254,7 +284,7 @@ function paintNode(id) {
   node.innerHTML =
     `<span class="buf-num">${buf.number}</span>` +
     `<span class="buf-name">${esc(name)}</span>${badge}` +
-    `<button class="buf-close" data-id="${buf.id}" title="Close buffer">×</button>`;
+    `<button class="buf-close" data-id="${buf.id}" title="Close buffer" aria-label="Close buffer">×</button>`;
 }
 
 function removeNode(id) {
@@ -278,7 +308,13 @@ function makeNode(item) {
   node.dataset.id       = String(item.buf.id);
   node.dataset.isServer = isServer ? '1' : '0';
   node.dataset.indent   = indent   ? '1' : '0';
+  node.tabIndex = 0;
+  node.setAttribute('role', 'button');
   node.addEventListener('click', () => activateBuffer(node.dataset.id));
+  node.addEventListener('keydown', e => {
+    if (e.target !== node) return;   // let the nested close button handle its own keys
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activateBuffer(node.dataset.id); }
+  });
   const classes = ['buffer-item'];
   if (isServer) classes.push('buf-server');
   if (indent)   classes.push('buf-indented');
@@ -288,7 +324,7 @@ function makeNode(item) {
   node.innerHTML =
     `<span class="buf-num">${buf.number}</span>` +
     `<span class="buf-name">${esc(name)}</span>` +
-    `<button class="buf-close" data-id="${buf.id}" title="Close buffer">×</button>`;
+    `<button class="buf-close" data-id="${buf.id}" title="Close buffer" aria-label="Close buffer">×</button>`;
   return node;
 }
 

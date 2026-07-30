@@ -1,6 +1,7 @@
 import { state } from './state.js';
 
-const el = id => document.getElementById(id);
+const el  = id => document.getElementById(id);
+const esc = s  => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
 // ─── Upload dispatch ──────────────────────────────────────────────────────────
 export async function uploadFile(file) {
@@ -77,7 +78,7 @@ function showUploadError(msg) {
     `<span class="msg-time"></span>` +
     `<span class="msg-prefix">upload</span>` +
     `<span class="msg-sep"></span>` +
-    `<span class="msg-text">${msg}</span>`;
+    `<span class="msg-text">${esc(msg)}</span>`;
   box.appendChild(row);
   if (state.scroll.pinned) box.scrollTop = box.scrollHeight;
 }

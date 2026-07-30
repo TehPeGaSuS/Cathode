@@ -4,7 +4,7 @@ import { applyPrefixWidth, sysMsg } from './chat.js';
 import {
   onBufOpened, onBufUpdated, onBufCleared, onBufClosed,
   onLineAdded, onNickAdded, onNickRemoved, onGroupChanged,
-  collectNicks, rebuildBufList, activateBuffer,
+  collectNicks, rebuildBufList, activateBuffer, clearBufList,
 } from './buffers.js';
 
 const el = id => document.getElementById(id);
@@ -26,6 +26,16 @@ export function parseId(v) {
   if (typeof v === 'string') return v;          // already a string key
   if (typeof v === 'number') return String(Math.round(v)); // float → integer string
   return String(v);
+}
+
+// JSON.parse loses precision on integers past 2^53 *before* parseId ever sees
+// them (a plain `Number` conversion during tokenizing), so quoting large IDs
+// in the raw text — for keys named "id" or ending in "_id" — before parsing
+// is the only way to preserve them. Only touches `"...id":<digits>` value
+// positions, so it can't misfire on numbers embedded in message/string content.
+const ID_KEY_RE = /"([a-zA-Z_]*id)":(-?\d{16,})([,}\]])/g;
+function preserveLargeIds(text) {
+  return text.replace(ID_KEY_RE, '"$1":"$2"$3');
 }
 
 // ─── WebSocket send ───────────────────────────────────────────────────────────
@@ -81,14 +91,18 @@ function connectTo(host, port, pass, tls) {
     state.connected = true;
     reconnect.enabled = true;
     reconnect.backoff = INITIAL_BACKOFF;
-    Object.assign(state.settings, { host, port, pass, tls });
+    const rememberPass = el('remember-pass').checked;
+    Object.assign(state.settings, {
+      host, port, tls, rememberPass,
+      pass: rememberPass ? pass : undefined,
+    });
     saveSettings();
     onConnected();
   };
 
   ws.onmessage = e => {
     let data;
-    try { data = JSON.parse(e.data); } catch { return; }
+    try { data = JSON.parse(preserveLargeIds(e.data)); } catch { return; }
     if (Array.isArray(data)) data.forEach(dispatch);
     else dispatch(data);
   };
@@ -170,7 +184,11 @@ function handleEvent(msg) {
     case 'nicklist_group_changed':  onGroupChanged(msg.buffer_id); break;
     case 'upgrade':                 sysMsg(null, '⟳ WeeChat upgrading…'); break;
     case 'upgrade_ended':           sysMsg(null, '✓ WeeChat upgrade complete.'); break;
-    case 'quit':                    onDisconnected(); break;
+    // Let the socket's own onclose handler run the normal close/reconnect
+    // path instead of tearing down state here — a relay restart still
+    // fires 'quit', and that shouldn't be treated as a user-initiated
+    // disconnect that skips auto-reconnect.
+    case 'quit':                    if (state.ws) state.ws.close(); break;
   }
 }
 
@@ -227,7 +245,7 @@ export function onDisconnected(userInitiated = true) {
     state.activeBufferId  = null;
     state.scroll.pinned   = true;
     state.scroll.newCount = 0;
-    el('buffer-list').innerHTML = '';
+    clearBufList();
     el('messages').innerHTML    = '';
     el('nicklist').innerHTML    = '';
     const banner = document.getElementById('new-msg-banner');

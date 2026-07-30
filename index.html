@@ -8,8 +8,6 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <title>Cathode</title>
   <link rel="stylesheet" href="style.css">
-  <!-- Emoji picker Web Component — loaded from CDN, no build step needed -->
-  <script type="module" src="https://cdn.jsdelivr.net/npm/emoji-picker-element@1/index.js"></script>
 </head>
 <body>
 
@@ -67,6 +65,11 @@
           <span id="tls-locked-note" style="display:none"> — required on HTTPS pages</span>
         </label>
 
+        <label class="checkbox-row">
+          <input id="remember-pass" type="checkbox">
+          REMEMBER PASSWORD ON THIS DEVICE
+        </label>
+
         <div id="conn-error"></div>
 
         <div class="connect-actions">
@@ -92,6 +95,7 @@
       <div id="buffer-list"></div>
       <div id="sidebar-footer">
         <button id="sidebar-join-btn" class="sidebar-footer-btn">＋ JOIN</button>
+        <input id="sidebar-join-input" type="text" placeholder="#channel" spellcheck="false" autocomplete="off" style="display:none">
       </div>
     </div>
 
@@ -106,14 +110,10 @@
       <div id="inputbar">
         <span id="input-prompt">›</span>
         <input id="chat-input" type="text" placeholder="type a message or /command" autocomplete="off" spellcheck="false">
-        <button id="emoji-btn" class="inputbar-btn" title="Emoji picker">😊</button>
-        <button id="upload-btn" class="inputbar-btn" title="Upload file">📎</button>
-        <input id="upload-file" type="file" style="display:none" multiple>
+        <button id="emoji-btn" class="inputbar-btn" title="Emoji picker" aria-label="Emoji picker">😊</button>
+        <button id="upload-btn" class="inputbar-btn" title="Upload file" aria-label="Upload file">📎</button>
+        <input id="upload-file" type="file" style="display:none">
         <button id="send-btn">SEND</button>
-      </div>
-      <!-- Emoji picker popup — hidden until emoji-btn clicked -->
-      <div id="emoji-popup" style="display:none">
-        <emoji-picker id="emoji-picker"></emoji-picker>
       </div>
     </div>
 
@@ -143,7 +143,7 @@
   <div id="settings-panel">
     <div class="settings-header">
       <span>SETTINGS</span>
-      <button id="settings-close">✕</button>
+      <button id="settings-close" aria-label="Close settings">✕</button>
     </div>
     <div class="settings-body">
 
