@@ -49,6 +49,15 @@ cathode.example.com {
         Referrer-Policy           strict-origin-when-cross-origin
     }
 
+    # Cathode has no build step/file hashing, so browsers must always
+    # revalidate HTML/JS/CSS rather than cache them freely — otherwise a
+    # partially-stale set of cached ES modules (e.g. an old js/foo.js next
+    # to a fresh main.js that imports a since-added export from it) can
+    # break the whole page after an update. Revalidation is still a cheap
+    # conditional GET (304) when nothing changed, not a full re-download.
+    @static path *.html *.js *.css
+    header @static Cache-Control "no-cache"
+
     # Optional: enable compression for static assets
     encode gzip
 }
