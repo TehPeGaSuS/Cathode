@@ -1,5 +1,6 @@
 import { state, saveSettings, BLOCKED_PORTS } from './state.js';
 import { applyPrefixWidth } from './chat.js';
+import { updateUploadButtonVisibility } from './upload.js';
 
 const el = id => document.getElementById(id);
 
@@ -47,6 +48,7 @@ export function saveSettingsPanel() {
     applyPrefixWidth();
   }
   saveSettings();
+  updateUploadButtonVisibility();
   closeSettings();
 }
 

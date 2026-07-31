@@ -6,7 +6,8 @@ import { initTheme, toggleTheme,
 import { connect, disconnect, wsSend }              from './connection.js';
 import { toggleSmartFilter }                        from './chat.js';
 import { sendInput, onInputKey }                    from './input.js';
-import { uploadFile, initDragDrop }                 from './upload.js';
+import { uploadFile, initDragDrop,
+         updateUploadButtonVisibility }              from './upload.js';
 import { setWsSend }                                from './buffers.js';
 
 const el = id => document.getElementById(id);
@@ -38,6 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (s.pass) el('password').value = s.pass;
   }
   if (s.prefixAlignMax) state.prefixAlignMax  = s.prefixAlignMax;
+  updateUploadButtonVisibility();
 
   // ── Initial UI state ──────────────────────────────────────────────────────
   el('connect-screen').style.display = '';
