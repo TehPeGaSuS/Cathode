@@ -1145,6 +1145,18 @@ a:hover { text-decoration: underline; }
   #status-text        { display: none; }
   .topbar-btn .btn-label { display: none; }
   .topbar-btn { padding: 4px 8px; }
+
+  /* iOS Safari auto-zooms the whole page when a focused text input's
+     computed font-size is under 16px — Cathode auto-focuses #chat-input
+     right after connecting, which would otherwise zoom/scroll the topbar
+     out of view the moment you land on the chat screen. */
+  #chat-input,
+  .field input[type="text"],
+  .field input[type="number"],
+  .field input[type="password"],
+  #sidebar-join-input {
+    font-size: 16px;
+  }
 }
 
 @media (max-width: 480px) {
