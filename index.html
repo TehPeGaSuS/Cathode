@@ -15,6 +15,7 @@
 
   <!-- ── Top bar ─────────────────────────────────────────────────────────── -->
   <div id="topbar">
+    <button id="sidebar-toggle" class="topbar-btn mobile-only" aria-label="Toggle buffer list">☰</button>
     <span class="logo">CATHODE<span>/irc</span></span>
     <div class="status-pill">
       <div id="status-dot" class="status-dot disconnected"></div>
@@ -105,6 +106,7 @@
         <span id="chat-title"></span>
         <span id="chat-topic"></span>
         <button id="smartfilter-btn" class="header-btn" style="display:none">FILTER: ON</button>
+        <button id="nicklist-toggle" class="header-btn mobile-only" aria-label="Toggle nick list">NICKS</button>
       </div>
       <div id="messages"></div>
       <div id="inputbar">
@@ -124,6 +126,9 @@
     </div>
 
   </div>
+
+  <!-- Backdrop behind the sidebar/nicklist drawers on narrow screens -->
+  <div id="drawer-backdrop"></div>
 
   <!-- ── Footer ──────────────────────────────────────────────────────────── -->
   <div id="footer">

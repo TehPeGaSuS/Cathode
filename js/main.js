@@ -9,6 +9,7 @@ import { sendInput, onInputKey }                    from './input.js';
 import { uploadFile, initDragDrop,
          updateUploadButtonVisibility }              from './upload.js';
 import { setWsSend }                                from './buffers.js';
+import { initMobileLayout, closeDrawer }            from './layout.js';
 
 const el = id => document.getElementById(id);
 
@@ -55,6 +56,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ── Wire wsSend into buffers (nick menu commands) ─────────────────────────
   setWsSend(wsSend);
+
+  // ── Mobile sidebar/nicklist drawers ────────────────────────────────────────
+  initMobileLayout();
 
   // ── Connection ────────────────────────────────────────────────────────────
   el('connect-btn')   .addEventListener('click', connect);
@@ -215,6 +219,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
       closeSettings();
+      closeDrawer();
       if (_emojiPicker) { _emojiPicker.remove(); _emojiPicker = null; }
     }
   });

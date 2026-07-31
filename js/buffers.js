@@ -3,6 +3,7 @@ import { parseId } from './connection.js';
 import { ansiToHtml, nickColorToCss, safeFg } from './ansi.js';
 import { renderMessages, renderChatHeader, hideNewMsgBanner, appendLine } from './chat.js';
 import { maybeNotify, updateTitle } from './notifications.js';
+import { closeDrawer } from './layout.js';
 
 const el  = id => document.getElementById(id);
 const esc = s  => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -345,6 +346,7 @@ export function activateBuffer(id) {
   renderNicklist(buf);
   hideNewMsgBanner();
   updateTitle();
+  closeDrawer();
   el('chat-input').focus();
 
   // Sync read position back to WeeChat by switching to the buffer there too.

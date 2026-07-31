@@ -166,6 +166,12 @@ a:hover { text-decoration: underline; }
   color: var(--fg);
 }
 
+#sidebar-toggle {
+  font-size: 15px;
+  padding: 2px 10px;
+  line-height: 1;
+}
+
 /* Theme toggle — amber in dark, indigo in light */
 #theme-toggle {
   color: #b8860b;
@@ -1042,14 +1048,62 @@ a:hover { text-decoration: underline; }
 #footer a:hover { color: var(--fg-dim); }
 
 /* ─── Responsive ─────────────────────────────────────────────────────────── */
+
+/* Buttons that only make sense once the sidebar/nicklist become drawers */
+.mobile-only { display: none; }
+
+/* Buffer-row close (×) and copy-link etc. rely on :hover to appear, which
+   doesn't exist on touch — always show them when there's no hover input. */
+@media (hover: none) {
+  .buf-close { opacity: 1; }
+}
+
 @media (max-width: 700px) {
-  #sidebar { width: 140px; }
-  #nicklist-panel { display: none; }
+  .mobile-only {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  #drawer-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 140;
+  }
+  #drawer-backdrop.open { display: block; }
+
+  /* Sidebar and nicklist become off-canvas drawers instead of permanent
+     columns, so the message view gets the full screen width. */
+  #sidebar, #nicklist-panel {
+    position: fixed;
+    top: 36px; /* below the topbar */
+    bottom: 0;
+    z-index: 150;
+    transition: transform 0.2s ease;
+    box-shadow: 0 0 24px rgba(0, 0, 0, 0.5);
+  }
+
+  #sidebar {
+    left: 0;
+    width: min(260px, 80vw);
+    transform: translateX(-100%);
+  }
+  #sidebar.open { transform: translateX(0); }
+
+  #nicklist-panel {
+    right: 0;
+    width: min(220px, 80vw);
+    transform: translateX(100%);
+  }
+  #nicklist-panel.open { transform: translateX(0); }
+
   .msg-prefix { width: 90px; }
   .msg-time { width: 56px; font-size: 10px; }
 }
 
 @media (max-width: 480px) {
-  #sidebar { width: 110px; }
+  #sidebar { width: min(220px, 80vw); }
   .msg-prefix { width: 70px; }
 }
