@@ -64,11 +64,13 @@ Drop three files on a web server and go.
 ### 1. Copy the files
 
 ```bash
-# Clone or download, then copy to your web root:
-cp index.html app.js style.css /var/www/cathode/
+# Clone (or download the ZIP and extract it) — the folder is named
+# "Cathode" by default, matching the paths used throughout this README
+# and the proxy/ configs:
+git clone https://github.com/TehPeGaSuS/Cathode.git /var/www/Cathode
 
 # Or serve from the repo directly for development:
-python3 -m http.server 8080
+cd Cathode && python3 -m http.server 8080
 ```
 
 ### 2. Set up a reverse proxy (recommended)
@@ -164,7 +166,7 @@ periodically (e.g. via cron) to enforce the retention window from
 
 ```bash
 # /etc/cron.d/cathode-upload-purge
-17 * * * * www-data php /var/www/cathode/upload/index.php purge >> /var/log/cathode-purge.log 2>&1
+17 * * * * www-data php /var/www/Cathode/upload/index.php purge >> /var/log/cathode-purge.log 2>&1
 ```
 
 Run it as whichever user owns `upload/files/` (typically the web server
@@ -188,7 +190,7 @@ Either serve Cathode over plain HTTP as well, or use the reverse proxy approach.
 ## Directory structure
 
 ```
-cathode/
+Cathode/
 ├── index.html          — app shell
 ├── js/                 — client logic (ES modules, no build step)
 ├── style.css           — terminal theme, dark + light

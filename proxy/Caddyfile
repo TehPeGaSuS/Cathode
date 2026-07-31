@@ -10,7 +10,7 @@
 cathode.example.com {
 
     # Serve Cathode static files
-    root * /var/www/cathode
+    root * /var/www/Cathode
     file_server
 
     # ── Built-in uploads (optional) ───────────────────────────────────────
@@ -22,7 +22,7 @@ cathode.example.com {
         file_server
     }
     handle /upload/* {
-        root * /var/www/cathode
+        root * /var/www/Cathode
         php_fastcgi unix//run/php/php8.3-fpm.sock  # adjust to your PHP version/socket
     }
 
@@ -60,7 +60,7 @@ cathode.example.com {
 # in Cathode's connect screen.
 #
 # :8080 {
-#     root * /var/www/cathode
+#     root * /var/www/Cathode
 #     file_server
 #
 #     handle /api* {
