@@ -12,7 +12,9 @@ export function initTheme() {
 export function setTheme(t) {
   document.documentElement.setAttribute('data-theme', t);
   localStorage.setItem('cathode_theme', t);
-  el('theme-toggle').textContent = t === 'dark' ? '◐ LIGHT' : '◑ DARK';
+  const dark = t === 'dark';
+  el('theme-icon').textContent  = dark ? '◐' : '◑';
+  el('theme-label').textContent = dark ? ' LIGHT' : ' DARK';
 }
 
 export function toggleTheme() {

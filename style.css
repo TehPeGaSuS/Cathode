@@ -108,6 +108,19 @@ a:hover { text-decoration: underline; }
   background: var(--bg-panel);
   flex-shrink: 0;
   user-select: none;
+  /* Safety net: if content ever doesn't fit (very narrow screens, long
+     translations, etc.), scroll horizontally instead of silently clipping
+     buttons off the edge of the viewport. */
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+#topbar::-webkit-scrollbar { display: none; }
+
+#topbar .logo,
+.status-pill,
+.topbar-btn {
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 #topbar .logo {
@@ -309,6 +322,29 @@ a:hover { text-decoration: underline; }
 }
 .field-row .field { flex: 1; }
 .field-row .field.short { flex: 0 0 100px; }
+
+.password-row {
+  display: flex;
+  gap: 6px;
+}
+.password-row input { flex: 1; min-width: 0; }
+.password-toggle-btn {
+  flex-shrink: 0;
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--fg-dim);
+  font-family: inherit;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  padding: 0 12px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.password-toggle-btn:hover {
+  border-color: var(--border-l);
+  color: var(--fg);
+  background: var(--bg-hover);
+}
 
 .checkbox-row {
   display: flex;
@@ -1101,6 +1137,14 @@ a:hover { text-decoration: underline; }
 
   .msg-prefix { width: 90px; }
   .msg-time { width: 56px; font-size: 10px; }
+
+  /* Trim the topbar down to icons-only + the status dot — there's no room
+     for full button labels and status text on a phone-width screen. */
+  #topbar { gap: 6px; padding: 0 10px; }
+  #topbar .logo span { display: none; }        /* hides the "/irc" subtitle */
+  #status-text        { display: none; }
+  .topbar-btn .btn-label { display: none; }
+  .topbar-btn { padding: 4px 8px; }
 }
 
 @media (max-width: 480px) {

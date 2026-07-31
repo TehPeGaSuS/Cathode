@@ -67,6 +67,14 @@ document.addEventListener('DOMContentLoaded', () => {
     el(id).addEventListener('keydown', e => { if (e.key === 'Enter') connect(); })
   );
   el('port').addEventListener('input', checkPort);
+  el('password-toggle').addEventListener('click', () => {
+    const input   = el('password');
+    const showing = input.type === 'text';
+    input.type = showing ? 'password' : 'text';
+    el('password-toggle').textContent = showing ? 'SHOW' : 'HIDE';
+    el('password-toggle').setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
+    el('password-toggle').setAttribute('aria-pressed', String(!showing));
+  });
 
   // ── Chat input ────────────────────────────────────────────────────────────
   el('send-btn')  .addEventListener('click',   () => sendInput(wsSend));
