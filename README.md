@@ -8,8 +8,6 @@ A terminal-style web client for [WeeChat](https://weechat.org/), using the
 modern **API relay protocol** (WeeChat ≥ 4.0). No build step. No framework.
 Drop three files on a web server and go.
 
-> Inspired by [Glowing Bear](https://github.com/glowing-bear/glowing-bear).
-
 ---
 
 ## Features
