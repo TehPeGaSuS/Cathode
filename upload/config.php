@@ -15,13 +15,10 @@ class UploadConfig
     // proper "too large" response below.
     const MAX_FILESIZE = 10;
 
-    // Retention window, in days. Smaller files are kept closer to
-    // MAX_FILEAGE, larger files are pushed toward MIN_FILEAGE — see
-    // DECAY_EXP. Purging only happens when the `purge` CLI command runs
-    // (see README's cron example); nothing here is automatic on its own.
-    const MIN_FILEAGE = 1;
-    const MAX_FILEAGE = 14;
-    const DECAY_EXP   = 1;      // higher = penalise large files more steeply
+    // Retention window, in days. Purging only happens when the `purge`
+    // CLI command runs (see README's cron example); nothing here is
+    // automatic on its own.
+    const FILEAGE = 14;
 
     // Where uploaded files are stored. Must be writable by the web server
     // user (e.g. www-data). This directory must be served directly by your

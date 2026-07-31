@@ -153,14 +153,7 @@ function purge_files(): void
         $sizeMiB = filesize($path) / (1024 * 1024);
         $ageDays = (time() - filemtime($path)) / (60 * 60 * 24);
 
-        // Always keep files below the minimum age, regardless of size.
-        if ($ageDays < UploadConfig::MIN_FILEAGE) continue;
-
-        $maxAge = UploadConfig::MIN_FILEAGE +
-                  (UploadConfig::MAX_FILEAGE - UploadConfig::MIN_FILEAGE) *
-                  pow(max(0, 1 - ($sizeMiB / UploadConfig::MAX_FILESIZE)), UploadConfig::DECAY_EXP);
-
-        if ($ageDays > $maxAge) {
+        if ($ageDays > UploadConfig::FILEAGE) {
             unlink($path);
             printf("deleted %s (%.2f MiB, %.1f days old)\n", $file, $sizeMiB, $ageDays);
             $numDeleted++;
