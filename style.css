@@ -1145,7 +1145,15 @@ a:hover { text-decoration: underline; }
   #nicklist-panel.open { transform: translateX(0); }
 
   .msg-prefix { width: 90px; }
-  .msg-time { width: 56px; font-size: 10px; }
+
+  /* Denser text on mobile, closer to weechat-android's compact size —
+     desktop-sized text wastes screen space on a phone. */
+  .msg-row      { font-size: 12px; line-height: 1.4; }
+  .msg-time     { width: 50px; font-size: 10px; }
+  #chat-title   { font-size: 12px; }
+  #chat-topic   { font-size: 10px; }
+  .buffer-item  { font-size: 11px; }
+  .nick-item    { font-size: 11px; }
 
   /* Trim the topbar down to icons-only + the status dot — there's no room
      for full button labels and status text on a phone-width screen. */
@@ -1154,18 +1162,6 @@ a:hover { text-decoration: underline; }
   #status-text        { display: none; }
   .topbar-btn .btn-label { display: none; }
   .topbar-btn { padding: 4px 8px; }
-
-  /* iOS Safari auto-zooms the whole page when a focused text input's
-     computed font-size is under 16px — Cathode auto-focuses #chat-input
-     right after connecting, which would otherwise zoom/scroll the topbar
-     out of view the moment you land on the chat screen. */
-  #chat-input,
-  .field input[type="text"],
-  .field input[type="number"],
-  .field input[type="password"],
-  #sidebar-join-input {
-    font-size: 16px;
-  }
 }
 
 @media (max-width: 480px) {
