@@ -93,7 +93,10 @@ a:hover { text-decoration: underline; }
 #app {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100vh;   /* fallback for browsers without dvh support */
+  height: 100dvh;  /* accounts for mobile browser toolbars showing/hiding,
+                      so content isn't sized taller than what's actually
+                      visible and doesn't shift/scroll out of view */
   width: 100vw;
 }
 
@@ -234,11 +237,14 @@ a:hover { text-decoration: underline; }
   justify-content: center;
   gap: 16px;
   background: var(--bg);
+  padding: 16px;
+  overflow-y: auto;
 }
 
 /* HTTPS/ws warning banner — shown above the connect box */
 #http-notice {
-  width: 420px;
+  width: 100%;
+  max-width: 420px;
   padding: 10px 14px;
   border: 1px solid #553300;
   border-left: 3px solid #cc6600;
@@ -266,7 +272,8 @@ a:hover { text-decoration: underline; }
 [data-theme="light"] #tls-locked-note { color: #994400; }
 
 .connect-box {
-  width: 420px;
+  width: 100%;
+  max-width: 420px;
   border: 1px solid var(--border-l);
   background: var(--bg-panel);
   padding: 0;
@@ -995,11 +1002,13 @@ a:hover { text-decoration: underline; }
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 16px;
 }
 [data-theme="light"] #settings-overlay { background: rgba(0,0,0,0.2); }
 
 #settings-panel {
-  width: 380px;
+  width: 100%;
+  max-width: 380px;
   background: var(--bg-panel);
   border: 1px solid var(--border-l);
   display: flex;
