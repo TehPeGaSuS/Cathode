@@ -70,6 +70,15 @@ export function onInputKey(e, wsSend) {
   }
 }
 
+// For the mobile completion button — on-screen keyboards have no Tab key.
+// A click blurs #chat-input before this runs, but selectionStart/End (read
+// inside doTabComplete) survive a blur, and refocusing afterward restores
+// the caret to wherever doComplete() left it and reopens the keyboard.
+export function triggerTabComplete() {
+  doTabComplete();
+  el('chat-input').focus();
+}
+
 function doTabComplete() {
   const input  = el('chat-input');
   const val    = input.value;

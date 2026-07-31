@@ -5,7 +5,7 @@ import { initTheme, toggleTheme,
          checkPort, openCertPage }                  from './settings.js';
 import { connect, disconnect, wsSend }              from './connection.js';
 import { toggleSmartFilter }                        from './chat.js';
-import { sendInput, onInputKey }                    from './input.js';
+import { sendInput, onInputKey, triggerTabComplete } from './input.js';
 import { uploadFile, initDragDrop,
          updateUploadButtonVisibility }              from './upload.js';
 import { setWsSend }                                from './buffers.js';
@@ -79,6 +79,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // ── Chat input ────────────────────────────────────────────────────────────
   el('send-btn')  .addEventListener('click',   () => sendInput(wsSend));
   el('chat-input').addEventListener('keydown', e  => onInputKey(e, wsSend));
+  el('tab-complete-btn').addEventListener('click', triggerTabComplete);
 
   // ── Smart filter ──────────────────────────────────────────────────────────
   el('smartfilter-btn').addEventListener('click', toggleSmartFilter);

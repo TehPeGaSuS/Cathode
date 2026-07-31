@@ -1162,6 +1162,11 @@ a:hover { text-decoration: underline; }
   #status-text        { display: none; }
   .topbar-btn .btn-label { display: none; }
   .topbar-btn { padding: 4px 8px; }
+
+  /* Mobile keyboards have their own native emoji picker — the bundled one
+     just takes up inputbar space that's better spent on tab-complete,
+     which mobile keyboards have no equivalent for. */
+  #emoji-btn { display: none; }
 }
 
 @media (max-width: 480px) {
