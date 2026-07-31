@@ -14,7 +14,8 @@ export async function uploadFile(file) {
   setUploadState('uploading');
   try {
     let url;
-    if (backend === 'filehost') url = await uploadToFilehost(file, s.filehostUrl);
+    if (backend === 'cathode') url = await uploadToCathode(file);
+    else if (backend === 'filehost') url = await uploadToFilehost(file, s.filehostUrl);
     else if (backend === 'imgur') url = await uploadToImgur(file, s.imgurClientId);
 
     setUploadState('ok');
@@ -31,6 +32,22 @@ export async function uploadFile(file) {
     setTimeout(() => setUploadState('idle'), 3000);
     showUploadError(`Upload failed: ${err.message}`);
   }
+}
+
+// Cathode's own bundled upload backend (see upload/index.php). Always
+// relative to Cathode's own origin/path, so it works regardless of what
+// domain or subpath Cathode is deployed at.
+async function uploadToCathode(file) {
+  const form = new FormData();
+  form.append('file', file, file.name);
+  const res  = await fetch('upload/', { method: 'POST', body: form });
+  const text = await res.text();
+  let data;
+  try { data = JSON.parse(text); }
+  catch { throw new Error(summarizeUnexpectedResponse(text)); }
+  if (!res.ok || data.error) throw new Error(data.error || `Server returned ${res.status}`);
+  if (!data.url) throw new Error('Server response was missing a URL.');
+  return data.url;
 }
 
 async function uploadToFilehost(file, baseUrl) {

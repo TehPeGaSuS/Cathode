@@ -13,6 +13,19 @@ cathode.example.com {
     root * /var/www/cathode
     file_server
 
+    # ── Built-in uploads (optional) ───────────────────────────────────────
+    # Only needed if you set uploadBackend: 'cathode' in config.js.
+    # Requires php-fpm enabled and reachable at the socket/address below.
+    handle /upload/files/* {
+        # Uploaded files are untrusted content — always serve as static,
+        # never execute. No php_fastcgi directive here, on purpose.
+        file_server
+    }
+    handle /upload/* {
+        root * /var/www/cathode
+        php_fastcgi unix//run/php/php8.3-fpm.sock  # adjust to your PHP version/socket
+    }
+
     # Proxy WeeChat relay API (REST + WebSocket)
     # WeeChat listens on localhost:9000 — adjust if needed
     handle /api* {

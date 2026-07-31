@@ -1,0 +1,3 @@
+# Uploaded files (Cathode's built-in upload backend) — never commit user content
+upload/files/*
+!upload/files/.gitkeep

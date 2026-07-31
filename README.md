@@ -116,6 +116,64 @@ The exception is remembered by the browser for subsequent sessions.
 
 ---
 
+## Built-in uploads
+
+Cathode ships a small, self-contained PHP upload backend in `upload/` so you
+can host file/image sharing yourself instead of relying on Imgur or a
+separate filehost service. It's a couple hundred lines of PHP with no
+dependencies of its own — no database, no Composer.
+
+### 1. Requirements
+
+- PHP (8.0+) available to your web server, either via `mod_php` (Apache) or
+  `php-fpm` (Apache or nginx/Caddy)
+- The `upload/files/` directory writable by the web server user (e.g.
+  `www-data`)
+
+### 2. Web server config
+
+`upload/index.php` must be reachable and PHP-executable at `/upload/`, but
+`upload/files/` (where uploads are actually stored) must **only ever be
+served as static files, with PHP execution disabled** — uploaded content is
+untrusted. See the `proxy/` configs for ready-to-use examples of both parts
+(search for "Built-in uploads" in each file).
+
+### 3. Configure limits
+
+Edit `upload/config.php` — max file size, retention window, etc. Two things
+to double check:
+
+- `MAX_FILESIZE` (in `upload/config.php`) must be **at or below** your
+  `php.ini`'s `upload_max_filesize` **and** `post_max_size`. If either ini
+  value is lower, PHP silently drops oversized uploads before the script
+  ever sees them.
+- Multiple PHP SAPIs (CLI, `mod_php`, `php-fpm`) each have their own
+  `php.ini` — make sure you're editing the one your **web server** actually
+  loads, not just the CLI one (`php --ini` only shows the CLI config).
+
+### 4. Enable it in Cathode
+
+```js
+// config.js
+uploadBackend: 'cathode',
+```
+
+### 5. Purge old files
+
+Uploads are **not** deleted automatically — run the `purge` command
+periodically (e.g. via cron) to enforce the retention window from
+`upload/config.php`:
+
+```bash
+# /etc/cron.d/cathode-upload-purge
+17 * * * * www-data php /var/www/cathode/upload/index.php purge >> /var/log/cathode-purge.log 2>&1
+```
+
+Run it as whichever user owns `upload/files/` (typically the web server
+user) so file permissions line up.
+
+---
+
 ## LAN / local use (no TLS)
 
 If you're connecting from the same machine or a trusted LAN, you can skip TLS:
@@ -134,8 +192,13 @@ Either serve Cathode over plain HTTP as well, or use the reverse proxy approach.
 ```
 cathode/
 ├── index.html          — app shell
-├── app.js              — all client logic (ES module, no build step)
+├── js/                 — client logic (ES modules, no build step)
 ├── style.css           — terminal theme, dark + light
+├── config.js            — operator configuration
+├── upload/              — optional built-in upload backend (see above)
+│   ├── index.php
+│   ├── config.php
+│   └── files/           — uploaded files live here (gitignored)
 ├── proxy/
 │   ├── Caddyfile       — Caddy reverse proxy config
 │   ├── nginx.conf      — nginx reverse proxy config

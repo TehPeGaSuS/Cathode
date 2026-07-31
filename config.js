@@ -23,6 +23,9 @@ window.CATHODE_CONFIG = {
 
   // ── Upload backend ────────────────────────────────────────────────────────
   // 'none'     — disable file upload entirely (default)
+  // 'cathode'  — built-in upload backend bundled in the upload/ directory —
+  //              no separate service or account needed, see the README's
+  //              "Built-in uploads" section for setup
   // 'filehost' — single_php_filehost (https://github.com/Rouji/single_php_filehost)
   // 'imgur'    — Imgur API (requires a Client ID from https://api.imgur.com/oauth2/addclient)
   uploadBackend:  'none',
