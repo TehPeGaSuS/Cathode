@@ -195,6 +195,7 @@ Cathode/
 ├── js/                 — client logic (ES modules, no build step)
 ├── style.css           — terminal theme, dark + light
 ├── config.js            — operator configuration
+├── manifest.json         — installable PWA manifest ("Add to Home Screen")
 ├── upload/              — optional built-in upload backend (see above)
 │   ├── index.php
 │   ├── config.php

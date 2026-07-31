@@ -15,6 +15,9 @@ export function setTheme(t) {
   const dark = t === 'dark';
   el('theme-icon').textContent  = dark ? '◐' : '◑';
   el('theme-label').textContent = dark ? ' LIGHT' : ' DARK';
+  // Keeps the OS/browser chrome (status bar, PWA title bar, etc.) matching
+  // the app's own background instead of staying stuck on the dark default.
+  el('theme-color-meta').setAttribute('content', dark ? '#0a0a0a' : '#f5f5f5');
 }
 
 export function toggleTheme() {
