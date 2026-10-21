@@ -93,24 +93,53 @@ function toggleDrawer(which) {
 }
 
 // ─── Swipe ───────────────────────────────────────────────────────────────────
-// A clear horizontal swipe across the messages opens a drawer (right → buffer
-// list, left → nicklist); swiping a drawer back toward its edge closes it.
-// Screen-edge swipes are left alone: browsers use them for back/forward.
-function onSwipe(target, cb) {
-  let sx = 0, sy = 0, st = 0, tracking = false;
+// A horizontal swipe anywhere on the chat screen — screen edges included —
+// opens a drawer (right → buffer list, left → nicklist); swiping a drawer
+// back toward its edge closes it. The browser's own swipe-to-go-back/forward
+// is switched off in the CSS (overscroll-behavior), and once a touch is
+// clearly horizontal its moves are cancelled too, for engines that ignore it.
+// What can't be taken over: Android's system back gesture (it arrives as
+// "back", which closes the open drawer/sheet) and Safari's in-tab edge swipe.
+function onSwipe(target, cb, ignore = null) {
+  let sx = 0, sy = 0, st = 0, tracking = false, horizontal = false;
   target.addEventListener('touchstart', e => {
-    if (e.touches.length !== 1) { tracking = false; return; }
+    tracking = e.touches.length === 1 && !e.target.closest('input, textarea, select')
+      && !(ignore && e.target.closest(ignore));
+    if (!tracking) return;
     const t = e.touches[0];
-    sx = t.clientX; sy = t.clientY; st = Date.now(); tracking = true;
+    sx = t.clientX; sy = t.clientY; st = Date.now(); horizontal = false;
   }, { passive: true });
+  target.addEventListener('touchmove', e => {
+    if (!tracking) return;
+    const t  = e.touches[0];
+    const dx = t.clientX - sx, dy = t.clientY - sy;
+    if (!horizontal && Math.abs(dx) > 12 && Math.abs(dx) > 1.5 * Math.abs(dy)) horizontal = true;
+    if (horizontal && e.cancelable) e.preventDefault();
+  }, { passive: false });
   target.addEventListener('touchend', e => {
     if (!tracking) return;
     tracking = false;
     const t  = e.changedTouches[0];
     const dx = t.clientX - sx, dy = t.clientY - sy;
-    if (Date.now() - st > 600) return;
-    if (Math.abs(dx) < 70 || Math.abs(dx) < 2 * Math.abs(dy)) return;
+    if (Date.now() - st > 700) return;
+    if (Math.abs(dx) < 60 || Math.abs(dx) < 1.5 * Math.abs(dy)) return;
     cb(dx > 0 ? 'right' : 'left');
+  }, { passive: true });
+  target.addEventListener('touchcancel', () => { tracking = false; });
+}
+
+// Trackpad two-finger swipes (narrow desktop windows): same mapping
+function onWheelSwipe(target, cb) {
+  let acc = 0, timer = null, fired = false;
+  target.addEventListener('wheel', e => {
+    if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
+    acc += e.deltaX;
+    clearTimeout(timer);
+    timer = setTimeout(() => { acc = 0; fired = false; }, 250);
+    if (!fired && Math.abs(acc) > 120) {
+      fired = true;               // one drawer per gesture
+      cb(acc < 0 ? 'right' : 'left');
+    }
   }, { passive: true });
 }
 
@@ -158,11 +187,14 @@ export function initMobileLayout() {
   el('nicklist-toggle') .addEventListener('click', () => toggleDrawer('nicklist'));
   el('drawer-backdrop') .addEventListener('click', closeDrawer);
 
-  onSwipe(el('messages'), dir => {
+  const openFor = dir => {
     if (!isNarrow() || activeDrawer) return;
     if (dir === 'right') openDrawer('sidebar');
     else if (el('nicklist-toggle').offsetParent !== null) openDrawer('nicklist');
-  });
+  };
+  // Drawers live inside #chat-screen: their own handlers below deal with them
+  onSwipe(el('chat-screen'), openFor, '#sidebar, #nicklist-panel');
+  onWheelSwipe(el('chat-screen'), openFor);
   onSwipe(el('sidebar'),        dir => { if (dir === 'left')  closeDrawer(); });
   onSwipe(el('nicklist-panel'), dir => { if (dir === 'right') closeDrawer(); });
 }

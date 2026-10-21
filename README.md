@@ -73,7 +73,11 @@ weechat-android:
   name with its network and user count, a 🔔 button that jumps to the next
   highlight or unread private message, 👥 users and ⋮ for everything else
   (topic, hide joins/parts, leave/close, theme, settings, disconnect)
-- **Swipe** right across the messages for the buffer list, left for users
+- **Swipe** right anywhere (edges included) for the buffer list, left for
+  users. Cathode turns off the browser's own swipe back/forward (and
+  pull-to-refresh) for this. Android's system back gesture still acts as
+  back (it closes the open menu or drawer), and Safari's edge swipe in a
+  regular tab can't be overridden; installed as a PWA there's no conflict
 - **Tap a nick** (in the list or in front of a message) for Mention, Private
   message, Whois, Ignore and — as an op — Kick / Kick & ban with a reason
 - **Long-press a message** to mention its author or copy it

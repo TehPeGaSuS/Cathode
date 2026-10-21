@@ -58,6 +58,9 @@
 html, body {
   height: 100%;
   overflow: hidden;
+  /* No browser swipe-to-go-back/forward (Chrome, Edge, Firefox) — horizontal
+     swipes open the drawers instead — and no pull-to-refresh reloading the chat */
+  overscroll-behavior: none;
   font-family: 'IBM Plex Mono', 'Courier New', monospace;
   font-size: 13px;
   line-height: 1.5;
@@ -669,6 +672,7 @@ a:hover { text-decoration: underline; }
 #messages {
   flex: 1;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 6px 0;
   background: var(--bg);
 }
