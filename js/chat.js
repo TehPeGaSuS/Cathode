@@ -1,5 +1,6 @@
 import { state } from './state.js';
 import { ansiToHtml } from './ansi.js';
+import { applySearch } from './search.js';
 
 const el = id => document.getElementById(id);
 
@@ -22,8 +23,11 @@ export function truncPrefix(raw) {
 }
 
 export function applyPrefixWidth() {
-  const charWidth = 8.2; // IBM Plex Mono px/char at 13px
-  const px = Math.round(state.prefixAlignMax * charWidth) + 16;
+  // IBM Plex Mono is ~0.63em per char (8.2px at 13px); follow the text size
+  const narrow = window.matchMedia('(max-width: 700px)').matches;
+  const size   = parseFloat(state.settings.textSize) || (narrow ? 12 : 13);
+  const chars = state.prefixAlignMax + (state.settings.encloseNick ? 2 : 0);   // + "<>"
+  const px = Math.round(chars * size * 0.63) + 16;
   document.documentElement.style.setProperty('--prefix-col-width', px + 'px');
 }
 
@@ -78,9 +82,30 @@ export function renderMessages(buf, keepScroll = false) {
   // Nothing read yet: the marker sits before the first line
   if (buf.lastReadId == null && buf.firstLineNotRead && buf.type !== 'free')
     box.dataset.insertDividerAfterNext = '1';
+  if (buf.type !== 'free' && !buf.allLoaded && buf.lines.length) {
+    const more = document.createElement('button');
+    more.className   = 'load-older';
+    more.textContent = buf.loadingOlder ? 'fetching…' : '↑ fetch more lines';
+    more.disabled    = !!buf.loadingOlder;
+    more.addEventListener('click', () =>
+      window.dispatchEvent(new CustomEvent('cathode:loadolder', { detail: buf.id })));
+    box.appendChild(more);
+  }
   for (const line of buf.lines) appendLine(line, false, buf.lastReadId ?? null);
   box.scrollTop = (keepScroll && !state.scroll.pinned) ? top : box.scrollHeight;
   box.onscroll  = onMessagesScroll;
+  applySearch();
+}
+
+// Joins, parts, quits and nick changes ("non-human" lines in weechat-android)
+const JOINPART_TAGS = ['irc_join', 'irc_part', 'irc_quit', 'irc_nick', 'irc_smart_filter'];
+const isJoinPart = line => (line.tags || []).some(t => JOINPART_TAGS.includes(t));
+
+// Settings → "<nick>" brackets (weechat-android's enclose_nick): only lines
+// someone said — not joins, /me actions or network notices
+function isNickMessage(line) {
+  const tags = line.tags || [];
+  return tags.some(t => t.startsWith('nick_')) && !isJoinPart(line) && !tags.includes('irc_action');
 }
 
 export function appendLine(line, scroll = true, lastReadId = null) {
@@ -109,8 +134,10 @@ export function appendLine(line, scroll = true, lastReadId = null) {
 
   const subLines = (line.message || '').split('\n');
   const time     = line.date ? fmtTime(line.date) : '';
-  const prefix   = line.prefix ? ansiToHtml(truncPrefix(line.prefix)) : '';
-  const hlClass  = line.highlight ? ' msg-highlight' : '';
+  let   prefix   = line.prefix ? ansiToHtml(truncPrefix(line.prefix)) : '';
+  if (prefix && state.settings.encloseNick && isNickMessage(line))
+    prefix = `<span class="nick-chev">&lt;</span>${prefix}<span class="nick-chev">&gt;</span>`;
+  const hlClass  = (line.highlight ? ' msg-highlight' : '') + (isJoinPart(line) ? ' msg-joinpart' : '');
 
   subLines.forEach((sub, i) => {
     const row = document.createElement('div');
@@ -167,6 +194,13 @@ export function onMessagesScroll() {
   } else if (!atBottom && state.scroll.pinned) {
     state.scroll.pinned = false;
   }
+  // Reaching the top fetches older lines on its own; the "fetch more lines"
+  // button is there for buffers too short to scroll
+  if (box.scrollTop < 60) {
+    const buf = state.buffers.get(state.activeBufferId);
+    if (buf && buf.type !== 'free' && !buf.allLoaded && !buf.loadingOlder && buf.lines.length)
+      window.dispatchEvent(new CustomEvent('cathode:loadolder', { detail: buf.id }));
+  }
 }
 
 export function showNewMsgBanner(count) {
@@ -194,8 +228,11 @@ export function hideNewMsgBanner() {
 
 // ─── Helpers (local) ─────────────────────────────────────────────────────────
 function fmtTime(iso) {
-  try { return new Date(iso).toLocaleTimeString([],
-    {hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false}); }
+  const fmt = state.settings.timestamps || 'HH:mm:ss';
+  if (fmt === 'none') return '';
+  const opts = { hour:'2-digit', minute:'2-digit', hour12:false };
+  if (fmt === 'HH:mm:ss') opts.second = '2-digit';
+  try { return new Date(iso).toLocaleTimeString([], opts); }
   catch { return ''; }
 }
 

@@ -9,6 +9,8 @@ import { openSheet, confirmSheet, promptSheet } from './sheet.js';
 import { toggleSmartFilter, isSmartFilterable } from './chat.js';
 import { toggleTheme, openSettings } from './settings.js';
 import { uploadAvailable, pickUpload } from './upload.js';
+import { recentMessages } from './input.js';
+import { openSearch } from './search.js';
 
 const el  = id => document.getElementById(id);
 const esc = s  => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -191,6 +193,7 @@ export async function closeBuffer(buf) {
 }
 
 export function markRead(buf) {
+  if (state.settings.syncRead === false) return;   // local only, per Settings
   wsSend([
     { request: 'POST /api/input', body: { buffer_name: buf.name, command: '/buffer set unread' } },
     { request: 'POST /api/input', body: { buffer_name: buf.name, command: '/buffer set hotlist -1' } },
@@ -225,6 +228,8 @@ export function openOverflowSheet() {
       items.push({ icon: '⇅', label: 'Hide joins/parts', checked: state.smartFilter.get(buf.id) !== false,
                    onSelect: toggleSmartFilter });
     }
+    items.push({ icon: '⌕', label: 'Search', onSelect: openSearch });
+    if (recentMessages().length) items.push({ icon: '↺', label: 'Recent messages', onSelect: openRecentSheet });
     if (uploadAvailable()) items.push({ icon: '⇪', label: 'Upload file', onSelect: pickUpload });
     items.push({ icon: '✕', label: lv(buf).type === 'channel' ? 'Leave channel' : 'Close buffer',
                  danger: true, onSelect: () => closeBuffer(buf) });
@@ -238,6 +243,24 @@ export function openOverflowSheet() {
     title: buf ? (buf.short_name || buf.name) : 'Cathode',
     subtitleHtml: buf ? topicHtml(buf) : undefined,
     items,
+  });
+}
+
+// Re-use something already sent (weechat-android: long-press the input)
+export function openRecentSheet() {
+  const recent = recentMessages();
+  if (!recent.length) return;
+  openSheet({
+    title: 'Recent messages',
+    items: recent.map(text => ({
+      label: text,
+      onSelect: () => {
+        const input = el('chat-input');
+        input.value = text;
+        input.focus();
+        input.selectionStart = input.selectionEnd = text.length;
+      },
+    })),
   });
 }
 

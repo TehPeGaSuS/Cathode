@@ -682,7 +682,7 @@ a:hover { text-decoration: underline; }
   align-items: stretch;   /* stretch so msg-sep fills full row height */
   gap: 0;
   padding: 1px 14px;
-  font-size: 13px;
+  font-size: var(--msg-size, 13px);   /* Settings → Text size */
   line-height: 1.55;
   transition: background 0.1s;
 }
@@ -714,9 +714,9 @@ a:hover { text-decoration: underline; }
 
 .msg-time {
   color: var(--fg-dimmer);
-  font-size: 11px;
+  font-size: 0.85em;
   flex-shrink: 0;
-  width: 60px;
+  width: calc(8ch + 8px);   /* "12:34:56"; scales with the text size */
   padding-right: 6px;
   padding-top: 2px;    /* realign text to top within stretched row */
   user-select: none;
@@ -752,6 +752,72 @@ a:hover { text-decoration: underline; }
   margin-right: 8px;
   user-select: none;
 }
+
+body.time-short .msg-time { width: calc(5ch + 8px); }
+body.time-none  .msg-time { display: none !important; }
+
+.nick-chev { color: var(--fg-dim); }
+
+/* Joins/parts/quits/nick changes, when shown */
+body.dim-joins .msg-joinpart { opacity: 0.5; }
+
+/* "Fetch more lines" (also fetched automatically on reaching the top) */
+.load-older {
+  display: block;
+  margin: 4px auto 8px;
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--fg-dim);
+  font-family: inherit;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  padding: 6px 14px;
+  cursor: pointer;
+}
+.load-older:hover:not(:disabled) { color: var(--fg); border-color: var(--border-l); }
+.load-older:disabled { cursor: default; opacity: 0.6; }
+
+/* ─── Search ─────────────────────────────────────────────────────────────── */
+#search-bar {
+  display: none;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-panel);
+  flex-shrink: 0;
+}
+#search-bar.open { display: flex; }
+#search-input {
+  flex: 1;
+  min-width: 0;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  color: var(--fg);
+  font-family: inherit;
+  font-size: 12px;
+  padding: 4px 8px;
+  outline: none;
+}
+#search-input:focus { border-color: var(--fg-dim); }
+#search-count { font-size: 11px; color: var(--fg-dim); min-width: 3.5em; text-align: center; }
+#search-bar button {
+  background: none;
+  border: 1px solid transparent;
+  color: var(--fg-dim);
+  font-family: inherit;
+  font-size: 12px;
+  min-width: 28px;
+  height: 26px;
+  cursor: pointer;
+}
+#search-bar button:hover { color: var(--fg); background: var(--bg-hover); }
+#search-case.on { border-color: var(--fg-dim); color: var(--fg); }
+.msg-row.search-match   { background: var(--bg-active); }
+.msg-row.search-current { background: var(--hl-bg); box-shadow: inset 2px 0 0 var(--highlight); }
+
+.settings-note { font-size: 11px; color: var(--status-disc); margin-top: -4px; }
+.settings-note:empty { display: none; }
 
 /* ─── Media preview ──────────────────────────────────────────────────────── */
 .media-toggle {
@@ -1400,8 +1466,11 @@ body.chat-mode #footer { display: none; }   /* credits live on the connect scree
   .nick-item { font-size: 14px; min-height: 40px; padding: 4px 14px; gap: 6px; }
 
   /* ── Messages ── */
-  .msg-row      { font-size: 12px; line-height: 1.4; padding: 2px 10px; }
-  .msg-time     { width: 50px; font-size: 10px; }
+  .msg-row      { font-size: var(--msg-size, 12px); line-height: 1.4; padding: 2px 10px; }
+  .desktop-only { display: none !important; }
+  #search-bar   { padding: 6px 4px 6px 8px; }
+  #search-input { font-size: 16px; padding: 7px 10px; }   /* 16px: no iOS zoom */
+  #search-bar button { min-width: 40px; height: 40px; font-size: 15px; }
   .msg-prefix   { width: 90px; }
   .msg-row:hover { background: none; }
   .msg-row.msg-highlight:hover { background: var(--hl-bg); }

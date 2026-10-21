@@ -3,27 +3,32 @@ import { initTheme, toggleTheme,
          openSettings, closeSettings,
          saveSettingsPanel, updateBackendVis,
          checkPort, openCertPage,
-         applyPhoneLayout }                         from './settings.js';
+         applyDisplaySettings,
+         initSettingsPanel }                        from './settings.js';
 import { connect, disconnect, wsSend }              from './connection.js';
-import { toggleSmartFilter }                        from './chat.js';
+import { toggleSmartFilter, renderMessages,
+         applyPrefixWidth }                         from './chat.js';
 import { sendInput, onInputKey, triggerTabComplete } from './input.js';
 import { uploadFile, initDragDrop,
          updateUploadButtonVisibility }              from './upload.js';
-import { initBufferList, activateBuffer,
+import { initBufferList, activateBuffer, requestOlderLines,
          renderNicklist, rebuildBufList }           from './buffers.js';
 import { initMobileLayout, closeDrawer,
          onLongPress }                              from './layout.js';
 import { openOverflowSheet, openLineSheet,
          openNickSheet, nickOfLine, confirmDisconnect,
-         openJoinPrompt }                           from './actions.js';
+         openJoinPrompt, openRecentSheet }          from './actions.js';
 import { hotBuffers }                               from './notifications.js';
 import { closeSheet }                               from './sheet.js';
+import { initSearch, openSearch, closeSearch,
+         isSearchOpen }                             from './search.js';
 
 const el = id => document.getElementById(id);
 
 document.addEventListener('DOMContentLoaded', () => {
   initTheme();
-  applyPhoneLayout();
+  applyDisplaySettings();
+  initSettingsPanel();
 
   // ── Operator config (config.js → window.CATHODE_CONFIG) ──────────────────
   const cfg = window.CATHODE_CONFIG || {};
@@ -106,6 +111,19 @@ document.addEventListener('DOMContentLoaded', () => {
   el('hot-btn').addEventListener('click', () => {
     const next = hotBuffers()[0];
     if (next) activateBuffer(next.id);
+  });
+
+  // ── Search, older lines, recent messages ─────────────────────────────────
+  initSearch();
+  el('search-btn').addEventListener('click', openSearch);
+  window.addEventListener('cathode:loadolder', e => requestOlderLines(e.detail));
+  // Long-press SEND (or right-click it) to re-use a sent message
+  onLongPress(el('inputbar'), '#send-btn', openRecentSheet, { allowButtons: true });
+  // Text size / timestamps / dimming changed in Settings
+  window.addEventListener('cathode:displaychange', () => {
+    applyPrefixWidth();
+    const buf = state.buffers.get(state.activeBufferId);
+    if (buf) renderMessages(buf, true);
   });
 
   // ── Messages: tap a nick, long-press / right-click a line ─────────────────
@@ -229,6 +247,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ── Global keyboard shortcuts ─────────────────────────────────────────────
   document.addEventListener('keydown', e => {
+    if (e.key === 'F' && (e.ctrlKey || e.metaKey) && e.shiftKey && state.connected) {
+      e.preventDefault();
+      if (isSearchOpen()) closeSearch(); else openSearch();
+      return;
+    }
     if (e.key === 'Escape') {
       closeSheet();
       closeSettings();

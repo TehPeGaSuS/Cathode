@@ -10,7 +10,11 @@ const el  = id => document.getElementById(id);
 const esc = s  => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
 // Cap in-memory scrollback per buffer to avoid unbounded growth on long sessions.
+// Loading older lines raises a buffer's own cap (b.cap) so they aren't
+// trimmed away again by the next incoming line.
 const MAX_LINES = 2000;
+export const OLDER_STEP = 300;   // like weechat-android's "Fetch more lines"
+const capOf = b => Math.max(MAX_LINES, b.cap || 0);
 
 // ─── Buffer events ────────────────────────────────────────────────────────────
 export function onBufOpened(buf) {
@@ -19,8 +23,10 @@ export function onBufOpened(buf) {
   const nicks = {};
   collectNicks(buf.nicklist_root, nicks);
   // buffer_opened carries *all* lines of the buffer, so apply the cap here too
-  const lines = (buf.lines || []).slice(-MAX_LINES);
-  state.buffers.set(id, { ...buf, id, lines, nicks, unread:0, highlight:0, ...readMarker(buf) });
+  const all   = buf.lines || [];
+  const lines = all.slice(-MAX_LINES);
+  state.buffers.set(id, { ...buf, id, lines, nicks, unread:0, highlight:0, ...readMarker(buf),
+                          allLoaded: lines.length === all.length });
   if (!state.smartFilter.has(id)) state.smartFilter.set(id, true);
   rebuildBufList();
   // A /join or /query sent from Cathode: switch to it here (WeeChat itself
@@ -86,7 +92,10 @@ export function onLineAdded(rawId, line) {
   }
 
   b.lines.push(line);
-  if (b.lines.length > MAX_LINES) b.lines.splice(0, b.lines.length - MAX_LINES);
+  if (b.lines.length > capOf(b)) {
+    b.lines.splice(0, b.lines.length - capOf(b));
+    b.allLoaded = false;
+  }
   if (state.activeBufferId === id) {
     appendLine(line);
   } else if (countsAsUnread(line, b)) {
@@ -405,6 +414,7 @@ export function activateBuffer(id) {
 // display: "/buffer set" acts on the buffer the input is sent to, so the
 // read marker / hotlist of that buffer change and nothing else does.
 function syncReadState(left, entered) {
+  if (state.settings.syncRead === false) return;   // Settings: keep WeeChat's read state as is
   const reqs = [];
   const cmd  = (b, command) => ({ request: 'POST /api/input', body: { buffer_name: b.name, command } });
   if (left) {
@@ -413,4 +423,42 @@ function syncReadState(left, entered) {
   }
   reqs.push(cmd(entered, '/buffer set hotlist -1'));
   wsSend(reqs);
+}
+
+// ─── Older lines ──────────────────────────────────────────────────────────────
+// The API only returns "the last N lines", so ask for what we have plus a
+// step and keep the ones older than our oldest.
+export function requestOlderLines(rawId) {
+  const b = state.buffers.get(parseId(rawId));
+  if (!b || b.loadingOlder || b.allLoaded) return;
+  b.loadingOlder = true;
+  b.olderWanted  = b.lines.length + OLDER_STEP;
+  // Just relabel the button: a re-render here would move the view
+  const btn = state.activeBufferId === b.id && el('messages').querySelector('.load-older');
+  if (btn) { btn.textContent = 'fetching…'; btn.disabled = true; }
+  wsSend({ request: `GET /api/buffers/${b.id}/lines?lines=-${b.olderWanted}&colors=ansi`,
+           request_id: 'older:' + b.id });
+}
+
+export function onOlderLines(rawId, lines) {
+  const b = state.buffers.get(parseId(rawId));
+  if (!b) return;
+  b.loadingOlder = false;
+  lines = lines || [];
+  const firstId = b.lines.length ? String(b.lines[0].id) : null;
+  const idx     = firstId == null ? lines.length : lines.findIndex(l => String(l.id) === firstId);
+  // idx < 0: our oldest line isn't in WeeChat's window any more — nothing to add
+  const older   = idx > 0 ? lines.slice(0, idx) : [];
+  if (lines.length < b.olderWanted || !older.length) b.allLoaded = true;
+  if (older.length) {
+    b.lines = older.concat(b.lines);
+    b.cap   = b.lines.length;
+  }
+  if (state.activeBufferId !== b.id) return;
+  // Keep the view on the line that was at the top before the older ones came in
+  const box    = el('messages');
+  const before = box.scrollHeight - box.scrollTop;
+  state.scroll.pinned = false;
+  renderMessages(b, true);
+  box.scrollTop = box.scrollHeight - before;
 }

@@ -127,6 +127,7 @@
           <span class="hot-count">0</span>
         </button>
         <button id="smartfilter-btn" class="header-btn" style="display:none">JOIN/PART: HIDDEN</button>
+        <button id="search-btn" class="header-btn desktop-only" title="Search this buffer (Ctrl+Shift+F)">SEARCH</button>
         <button id="nicklist-toggle" class="hdr-icon mobile-only" aria-label="Users">
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 19c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><path d="M16 5a3 3 0 0 1 0 6M18 13.8c1.9.7 3 2.5 3 5.2"/></svg>
         </button>
@@ -135,6 +136,16 @@
         </button>
       </div>
       <div id="conn-strip" role="status"></div>
+      <div id="search-bar" role="search">
+        <input id="search-input" type="search" placeholder="search loaded lines — /regex/ ok"
+               aria-label="Search this buffer" spellcheck="false" autocomplete="off"
+               autocapitalize="off" enterkeyhint="search">
+        <span id="search-count" aria-live="polite"></span>
+        <button id="search-case" type="button" title="Case sensitive" aria-label="Case sensitive" aria-pressed="false">Aa</button>
+        <button id="search-up"   type="button" title="Older match (Enter)" aria-label="Older match">↑</button>
+        <button id="search-down" type="button" title="Newer match (Shift+Enter)" aria-label="Newer match">↓</button>
+        <button id="search-close" type="button" title="Close search" aria-label="Close search">✕</button>
+      </div>
       <div id="messages"></div>
       <div id="inputbar">
         <span id="input-prompt">›</span>
@@ -208,10 +219,63 @@
 
       <div class="settings-section" style="margin-top:16px">DISPLAY</div>
 
-      <div class="field">
-        <label for="s-prefix-max">PREFIX ALIGN MAX (weechat.look.prefix_align_max)</label>
-        <input id="s-prefix-max" type="number" min="4" max="64" value="16">
+      <div class="field-row">
+        <div class="field">
+          <label for="s-theme">THEME</label>
+          <select id="s-theme">
+            <option value="system">System</option>
+            <option value="dark">Dark</option>
+            <option value="light">Light</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="s-text-size">TEXT SIZE</label>
+          <select id="s-text-size">
+            <option value="">Default</option>
+            <option value="11">11</option><option value="12">12</option>
+            <option value="13">13</option><option value="14">14</option>
+            <option value="15">15</option><option value="16">16</option>
+            <option value="18">18</option>
+          </select>
+        </div>
       </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="s-timestamps">TIMESTAMPS</label>
+          <select id="s-timestamps">
+            <option value="HH:mm:ss">12:34:56</option>
+            <option value="HH:mm">12:34</option>
+            <option value="none">Hidden</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="s-prefix-max">NICK WIDTH</label>
+          <input id="s-prefix-max" type="number" min="4" max="64" value="16"
+                 title="Mirrors weechat.look.prefix_align_max">
+        </div>
+      </div>
+
+      <label class="checkbox-row">
+        <input id="s-enclose-nick" type="checkbox">
+        &lt;NICK&gt; BRACKETS AROUND NICKNAMES
+      </label>
+      <label class="checkbox-row">
+        <input id="s-dim-joins" type="checkbox">
+        DIM JOINS / PARTS / QUITS
+      </label>
+
+      <div class="settings-section" style="margin-top:16px">BEHAVIOUR</div>
+
+      <label class="checkbox-row">
+        <input id="s-sync-read" type="checkbox">
+        MARK BUFFERS READ IN WEECHAT
+      </label>
+      <label class="checkbox-row">
+        <input id="s-notifications" type="checkbox">
+        NOTIFICATIONS (highlights &amp; private messages)
+      </label>
+      <div id="s-notif-note" class="settings-note"></div>
 
       <div class="settings-section" style="margin-top:16px">PHONES</div>
 

@@ -146,12 +146,13 @@ function onWheelSwipe(target, cb) {
 // ─── Long press ──────────────────────────────────────────────────────────────
 // Touch: hold ~450ms without moving. Mouse: right-click. Links and buttons
 // keep their native behaviour.
-export function onLongPress(container, selector, cb) {
+export function onLongPress(container, selector, cb, { allowButtons = false } = {}) {
   let timer = null, sx = 0, sy = 0, lastFired = 0;
   const cancel = () => { clearTimeout(timer); timer = null; };
   container.addEventListener('touchstart', e => {
     const item = e.target.closest(selector);
-    if (!item || e.target.closest('a, button, input') || e.touches.length !== 1) return;
+    if (!item || e.touches.length !== 1) return;
+    if (!allowButtons && e.target.closest('a, button, input')) return;
     sx = e.touches[0].clientX; sy = e.touches[0].clientY;
     cancel();
     timer = setTimeout(() => {

@@ -1,10 +1,9 @@
 import { state, saveSettings, BLOCKED_PORTS } from './state.js';
-import { initNotifications } from './notifications.js';
 import { applyPrefixWidth, sysMsg } from './chat.js';
 import {
   onBufOpened, onBufUpdated, onBufCleared, onBufClosed,
   onLineAdded, onLineChanged, onNickAdded, onNickRemoved, onGroupChanged,
-  onBufNumbers, collectNicks, rebuildBufList, activateBuffer, clearBufList,
+  onBufNumbers, onOlderLines, collectNicks, rebuildBufList, activateBuffer, clearBufList,
 } from './buffers.js';
 
 const el = id => document.getElementById(id);
@@ -16,12 +15,20 @@ const reconnect = {
   backoff:  1000,    // ms, doubles each attempt up to MAX_BACKOFF
 };
 const MAX_BACKOFF  = 30_000;
+const INIT_LINES   = 200;   // per buffer at connect; older ones on demand
 const INITIAL_BACKOFF = 1_000;
 
-// Periodic POST /api/ping so idle reverse proxies (nginx proxy_read_timeout,
-// etc.) don't drop a quiet connection.
+// Periodic POST /api/ping: keeps idle reverse proxies (nginx
+// proxy_read_timeout, …) from dropping a quiet connection, and detects a dead
+// one — after a phone sleeps or hops from Wi-Fi to mobile data the socket can
+// stay "open" for minutes with nothing arriving. Anything received counts as
+// alive; no reply within PING_TIMEOUT means reconnect.
 const PING_INTERVAL = 60_000;
-let pingTimer = null;
+const PING_TIMEOUT  = 20_000;
+let pingTimer  = null;
+let aliveTimer = null;
+let lastRx     = 0;
+let current    = null;   // { host, port, pass, tls } of the live/last connection
 
 // ─── Float-safe ID parser ─────────────────────────────────────────────────────
 // The relay sometimes sends buffer IDs as JSON floats (e.g. 1709932823649184.0).
@@ -66,6 +73,7 @@ export function connect() {
 }
 
 function connectTo(host, port, pass, tls) {
+  current = { host, port, pass, tls };
   const hostFmt = (host.includes(':') && !host.startsWith('[')) ? `[${host}]` : host;
   const url     = `${tls ? 'wss' : 'ws'}://${hostFmt}:${port}/api`;
 
@@ -106,6 +114,7 @@ function connectTo(host, port, pass, tls) {
   };
 
   ws.onmessage = e => {
+    lastRx = Date.now();
     let data;
     try { data = JSON.parse(preserveLargeIds(e.data)); } catch { return; }
     if (Array.isArray(data)) data.forEach(dispatch);
@@ -125,10 +134,9 @@ function connectTo(host, port, pass, tls) {
   ws.onclose = () => {
     clearTimeout(timer);
     stopPing();
-    if (state.connected) {
-      onDisconnected(/* userInitiated */ false);
-      if (reconnect.enabled) scheduleReconnect(host, port, pass, tls);
-    }
+    if (state.connected) onDisconnected(/* userInitiated */ false);
+    // Also after a failed *re*connect attempt, or retrying would stop at one
+    if (reconnect.enabled) scheduleReconnect(host, port, pass, tls);
   };
 }
 
@@ -158,12 +166,47 @@ export function disconnect() {
 
 function startPing() {
   stopPing();
-  pingTimer = setInterval(() => wsSend({ request: 'POST /api/ping' }), PING_INTERVAL);
+  lastRx    = Date.now();
+  pingTimer = setInterval(() => checkAlive(PING_TIMEOUT), PING_INTERVAL);
 }
 
 function stopPing() {
   if (pingTimer) { clearInterval(pingTimer); pingTimer = null; }
+  clearTimeout(aliveTimer); aliveTimer = null;
 }
+
+function checkAlive(timeout) {
+  if (!state.ws || state.ws.readyState !== WebSocket.OPEN) return;
+  const sent = Date.now();
+  wsSend({ request: 'POST /api/ping', request_id: 'ping' });
+  clearTimeout(aliveTimer);
+  aliveTimer = setTimeout(() => { if (lastRx < sent) dropDeadConnection(); }, timeout);
+}
+
+// A dead socket can take minutes to report "close", so don't wait for it
+function dropDeadConnection() {
+  const ws = state.ws;
+  if (!ws) return;
+  ws.onclose = ws.onerror = ws.onmessage = null;
+  stopPing();
+  onDisconnected(/* userInitiated */ false);   // also closes the socket
+  if (reconnect.enabled && current)
+    scheduleReconnect(current.host, current.port, current.pass, current.tls);
+}
+
+// Back from the background or the network came back: check the connection
+// now instead of waiting for the next ping, and skip any pending back-off.
+function onWake() {
+  if (state.connected) { checkAlive(8_000); return; }
+  if (reconnect.enabled && reconnect.timer && current) {
+    clearReconnectTimer();
+    reconnect.backoff = INITIAL_BACKOFF;
+    setStatus('connecting', 'RECONNECTING…');
+    connectTo(current.host, current.port, current.pass, current.tls);
+  }
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') onWake(); });
+window.addEventListener('online', onWake);
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 // WeeChat base64url-decodes this and compares the bytes against the UTF-8
@@ -183,9 +226,16 @@ function dispatch(msg) {
   if (msg.code >= 400) { handleError(msg); return; }
   if (msg.request_id === 'init' && msg.body_type === 'buffers') { handleInit(msg); return; }
   if (msg.request_id === 'numbers' && msg.body_type === 'buffers') { onBufNumbers(msg.body); return; }
+  if (typeof msg.request_id === 'string' && msg.request_id.startsWith('older:')) {
+    onOlderLines(msg.request_id.slice(6), msg.body_type === 'lines' ? msg.body : []);
+    return;
+  }
 }
 
 function handleError(msg) {
+  // Don't leave "fetching…" stuck if the older-lines request failed
+  if (typeof msg.request_id === 'string' && msg.request_id.startsWith('older:'))
+    onOlderLines(msg.request_id.slice(6), []);
   const detail = (msg.body && msg.body.error) || msg.message || 'error';
   sysMsg(null, `✗ ${msg.request || 'request'}: ${detail} (${msg.code})`);
 }
@@ -236,11 +286,11 @@ function handleEvent(msg) {
 // ─── Lifecycle ────────────────────────────────────────────────────────────────
 function onConnected() {
   setStatus('connected', 'CONNECTED');
-  initNotifications();
+  // No notification prompt here: it's switched on from Settings, by a tap
   // input: false — Cathode has its own input box; without it every keystroke
   // typed in the WeeChat terminal sends a full buffer object here.
   wsSend([
-    { request: 'GET /api/buffers?lines=-200&nicks=true&colors=ansi', request_id: 'init' },
+    { request: `GET /api/buffers?lines=-${INIT_LINES}&nicks=true&colors=ansi`, request_id: 'init' },
     { request: 'POST /api/sync', body: { nicks: true, input: false, colors: 'ansi' } }
   ]);
   startPing();
@@ -264,8 +314,9 @@ function handleInit(msg) {
     collectNicks(buf.nicklist_root, nicks);
     // Use parseId to handle float IDs from the relay
     const id = parseId(buf.id) ?? buf.id;
-    state.buffers.set(id, { ...buf, id, lines: buf.lines||[], nicks, unread:0, highlight:0,
-      ...readMarker(buf) });
+    const lines = buf.lines || [];
+    state.buffers.set(id, { ...buf, id, lines, nicks, unread:0, highlight:0,
+      ...readMarker(buf), allLoaded: lines.length < INIT_LINES });
     if (!state.smartFilter.has(id)) state.smartFilter.set(id, true);
   }
   setConnecting(false);

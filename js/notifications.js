@@ -1,15 +1,9 @@
 import { state } from './state.js';
-
-export async function initNotifications() {
-  if (!('Notification' in window)) return;
-  if (Notification.permission === 'default') {
-    await Notification.requestPermission();
-  }
-}
+import { notificationsEnabled } from './settings.js';
 
 export function maybeNotify(buf, line, activateBufferFn) {
   if (!line) return;
-  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  if (!notificationsEnabled()) return;   // Settings → Notifications
 
   // Buffer-level notify gate.
   // WeeChat's buffer.notify setting only gates the hotlist — it does NOT affect

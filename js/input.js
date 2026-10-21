@@ -35,6 +35,12 @@ const MAX_HIST_LINES = 500;
 // once it resolves, whether the user has typed/moved since it started.
 let inputGeneration = 0;
 
+// Sent messages, newest first, without repeats — for the "Recent messages"
+// sheet (phone keyboards have no ↑ to walk the history)
+export function recentMessages(max = 25) {
+  return [...new Set(hist.lines)].slice(0, max);
+}
+
 export function sendInput(wsSend) {
   const buf  = state.buffers.get(state.activeBufferId);
   const text = el('chat-input').value.trim();

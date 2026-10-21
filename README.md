@@ -64,6 +64,25 @@ Drop three files on a web server and go.
 
 ---
 
+## Everyday features
+
+- **Older lines** — 200 lines per buffer are loaded on connect; scrolling to
+  the top fetches 300 more at a time (or press *fetch more lines*)
+- **Search** — ⋮ → Search on phones, SEARCH or Ctrl+Shift+F on desktop.
+  Searches the loaded lines; `/regex/` works, `Aa` toggles case, ↑/↓ (Enter /
+  Shift+Enter) step through matches from the newest
+- **Connection watchdog** — a ping every minute; no answer within 20s, or
+  coming back from the background / regaining network with a dead socket,
+  triggers an immediate reconnect, so a phone that slept or changed network
+  doesn't sit on a silent "connected" socket
+- **Settings** — theme (System/Dark/Light), text size, timestamps
+  (12:34:56, 12:34, hidden), nick width, `<nick>` brackets, dimmed
+  joins/parts, whether reading in Cathode marks buffers read in WeeChat, and
+  notifications (switched on here, so the browser asks for permission from a
+  tap; on iPhone they need Cathode added to the Home Screen)
+
+---
+
 ## On a phone
 
 Below 700px wide Cathode switches to a phone layout, modelled on
@@ -88,6 +107,9 @@ weechat-android:
   in Settings for the aligned column
 - The keyboard's Send key sends; the on-screen send and TAB buttons can be
   hidden in Settings (on desktop, Enter sends and there's no SEND button)
+
+- **Recent messages** — long-press the send button (or ⋮ → Recent messages)
+  to reuse something you sent, since phone keyboards have no ↑
 
 Installed as a PWA it runs full screen, and the layout respects notches and
 the home indicator.

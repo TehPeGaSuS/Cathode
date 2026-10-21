@@ -6,13 +6,31 @@ import { overlayOpened, overlayClosed } from './layout.js';
 const el = id => document.getElementById(id);
 
 // ─── Theme ────────────────────────────────────────────────────────────────────
-export function initTheme() {
-  setTheme(localStorage.getItem('cathode_theme') || 'dark');
+// Stored choice is 'system', 'dark' or 'light'; 'system' follows the OS and
+// is the default, like weechat-android.
+const darkQuery = window.matchMedia('(prefers-color-scheme: dark)');
+
+function themeChoice() {
+  try { return localStorage.getItem('cathode_theme') || 'system'; } catch { return 'system'; }
 }
 
-export function setTheme(t) {
+function resolveTheme(choice) {
+  return choice === 'system' ? (darkQuery.matches ? 'dark' : 'light') : choice;
+}
+
+export function initTheme() {
+  setTheme(themeChoice());
+  darkQuery.addEventListener('change', () => {
+    if (themeChoice() !== 'system') return;
+    setTheme('system');
+    window.dispatchEvent(new CustomEvent('cathode:themechange'));
+  });
+}
+
+export function setTheme(choice) {
+  try { localStorage.setItem('cathode_theme', choice); } catch {}
+  const t = resolveTheme(choice);
   document.documentElement.setAttribute('data-theme', t);
-  localStorage.setItem('cathode_theme', t);
   const dark = t === 'dark';
   el('theme-icon').textContent  = dark ? '◐' : '◑';
   el('theme-label').textContent = dark ? ' LIGHT' : ' DARK';
@@ -22,6 +40,7 @@ export function setTheme(t) {
 }
 
 export function toggleTheme() {
+  // The quick toggles pick an explicit theme; Settings can go back to System
   const cur = document.documentElement.getAttribute('data-theme') || 'dark';
   setTheme(cur === 'dark' ? 'light' : 'dark');
   // Re-render dispatched via custom event so chat.js can respond without circular import
@@ -38,6 +57,14 @@ export function openSettings() {
   el('s-inline-nicks').checked = s.inlineNicks !== false;
   el('s-show-send').checked    = s.showSend    !== false;
   el('s-show-tab').checked     = s.showTab     !== false;
+  el('s-theme').value          = themeChoice();
+  el('s-text-size').value      = s.textSize   || '';
+  el('s-timestamps').value     = s.timestamps || 'HH:mm:ss';
+  el('s-dim-joins').checked    = s.dimJoins   !== false;
+  el('s-enclose-nick').checked = !!s.encloseNick;
+  el('s-sync-read').checked    = s.syncRead   !== false;
+  el('s-notifications').checked = notificationsEnabled();
+  updateNotifNote();
   updateBackendVis();
   el('settings-overlay').style.display = '';
   overlayOpened('settings', hideSettings);
@@ -53,14 +80,54 @@ export function closeSettings() {
   overlayClosed('settings');
 }
 
-// Phone-only preferences (the CSS applies these classes below 700px only):
-// nick inline before the text instead of a right-aligned column, and the
-// send / tab buttons, which like weechat-android are on unless turned off.
-export function applyPhoneLayout() {
+// Display preferences that are pure CSS: body classes and a size variable.
+// inline-nicks / hide-send / hide-tab only take effect below 700px.
+export function applyDisplaySettings() {
   const s = state.settings;
-  document.body.classList.toggle('inline-nicks', s.inlineNicks !== false);
-  document.body.classList.toggle('hide-send',    s.showSend === false);
-  document.body.classList.toggle('hide-tab',     s.showTab  === false);
+  const b = document.body.classList;
+  b.toggle('inline-nicks', s.inlineNicks !== false);
+  b.toggle('hide-send',    s.showSend === false);
+  b.toggle('hide-tab',     s.showTab  === false);
+  b.toggle('dim-joins',    s.dimJoins !== false);
+  b.toggle('time-short',   s.timestamps === 'HH:mm');
+  b.toggle('time-none',    s.timestamps === 'none');
+  const root = document.documentElement.style;
+  if (s.textSize) root.setProperty('--msg-size', s.textSize + 'px');
+  else root.removeProperty('--msg-size');
+  applyPrefixWidth();
+}
+
+// ─── Notifications ────────────────────────────────────────────────────────────
+// Off until switched on here: the permission prompt has to come from a tap
+// (browsers quietly block prompts that don't). Older setups that already
+// granted permission keep notifying.
+export function notificationsEnabled() {
+  if (!('Notification' in window)) return false;
+  const v = state.settings.notifications;
+  if (v === undefined) return Notification.permission === 'granted';
+  return v && Notification.permission === 'granted';
+}
+
+function updateNotifNote() {
+  const note = el('s-notif-note');
+  const box  = el('s-notifications');
+  if (!('Notification' in window)) {
+    box.disabled = true;
+    note.textContent = 'Not supported here (on iPhone: add Cathode to the Home Screen first).';
+  } else if (Notification.permission === 'denied') {
+    note.textContent = 'Blocked in the browser’s site settings — allow notifications there first.';
+  } else {
+    note.textContent = '';
+  }
+}
+
+async function onNotifToggle() {
+  const box = el('s-notifications');
+  if (box.checked && 'Notification' in window && Notification.permission === 'default') {
+    const p = await Notification.requestPermission();
+    if (p !== 'granted') box.checked = false;
+  }
+  updateNotifNote();
 }
 
 export function saveSettingsPanel() {
@@ -76,10 +143,25 @@ export function saveSettingsPanel() {
   state.settings.inlineNicks = el('s-inline-nicks').checked;
   state.settings.showSend    = el('s-show-send').checked;
   state.settings.showTab     = el('s-show-tab').checked;
-  applyPhoneLayout();
+  state.settings.textSize    = el('s-text-size').value;
+  state.settings.timestamps  = el('s-timestamps').value;
+  state.settings.dimJoins    = el('s-dim-joins').checked;
+  state.settings.encloseNick = el('s-enclose-nick').checked;
+  state.settings.syncRead    = el('s-sync-read').checked;
+  state.settings.notifications = el('s-notifications').checked;
+  applyDisplaySettings();
+  if (el('s-theme').value !== themeChoice()) {
+    setTheme(el('s-theme').value);
+    window.dispatchEvent(new CustomEvent('cathode:themechange'));
+  }
+  window.dispatchEvent(new CustomEvent('cathode:displaychange'));
   saveSettings();
   updateUploadButtonVisibility();
   closeSettings();
+}
+
+export function initSettingsPanel() {
+  el('s-notifications').addEventListener('change', onNotifToggle);
 }
 
 export function updateBackendVis() {
