@@ -1,5 +1,6 @@
 import { state, saveSettings, BLOCKED_PORTS } from './state.js';
 import { applyPrefixWidth, sysMsg } from './chat.js';
+import { updateWakeLock } from './wakelock.js';
 import {
   onBufOpened, onBufUpdated, onBufCleared, onBufClosed,
   onLineAdded, onLineChanged, onNickAdded, onNickRemoved, onGroupChanged,
@@ -286,6 +287,7 @@ function handleEvent(msg) {
 // ─── Lifecycle ────────────────────────────────────────────────────────────────
 function onConnected() {
   setStatus('connected', 'CONNECTED');
+  updateWakeLock();
   // No notification prompt here: it's switched on from Settings, by a tap
   // input: false — Cathode has its own input box; without it every keystroke
   // typed in the WeeChat terminal sends a full buffer object here.
@@ -345,6 +347,7 @@ export function readMarker(buf) {
 export function onDisconnected(userInitiated = true) {
   if (!state.connected && !state.ws) return;
   state.connected = false;
+  updateWakeLock();   // let the screen sleep again
   if (state.ws) { try { state.ws.close(); } catch(_){} state.ws = null; }
   setStatus('disconnected', 'DISCONNECTED');
   el('disconnect-btn').style.display = 'none';

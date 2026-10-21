@@ -80,6 +80,11 @@ Drop three files on a web server and go.
   joins/parts, whether reading in Cathode marks buffers read in WeeChat, and
   notifications (switched on here, so the browser asks for permission from a
   tap; on iPhone they need Cathode added to the Home Screen)
+- **Keep screen on while open** (Settings, off by default) — holds a screen
+  wake lock while Cathode is connected and visible, so the phone doesn't
+  lock and background the page. Needs HTTPS (or localhost). Browsers don't
+  let a page stay alive once you switch away; on return Cathode reconnects
+  and reloads the latest lines at once
 
 ---
 

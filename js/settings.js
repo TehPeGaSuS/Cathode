@@ -2,6 +2,7 @@ import { state, saveSettings, BLOCKED_PORTS } from './state.js';
 import { applyPrefixWidth } from './chat.js';
 import { updateUploadButtonVisibility } from './upload.js';
 import { overlayOpened, overlayClosed } from './layout.js';
+import { updateWakeLock, wakeLockSupported } from './wakelock.js';
 
 const el = id => document.getElementById(id);
 
@@ -65,6 +66,11 @@ export function openSettings() {
   el('s-sync-read').checked    = s.syncRead   !== false;
   el('s-notifications').checked = notificationsEnabled();
   updateNotifNote();
+  el('s-keep-awake').checked  = s.keepAwake === true;
+  el('s-keep-awake').disabled = !wakeLockSupported();
+  el('s-awake-note').textContent = wakeLockSupported() ? ''
+    : isSecureContext ? 'Not supported by this browser.'
+    : 'Needs Cathode served over HTTPS.';
   updateBackendVis();
   el('settings-overlay').style.display = '';
   overlayOpened('settings', hideSettings);
@@ -149,6 +155,8 @@ export function saveSettingsPanel() {
   state.settings.encloseNick = el('s-enclose-nick').checked;
   state.settings.syncRead    = el('s-sync-read').checked;
   state.settings.notifications = el('s-notifications').checked;
+  state.settings.keepAwake   = el('s-keep-awake').checked;
+  updateWakeLock();
   applyDisplaySettings();
   if (el('s-theme').value !== themeChoice()) {
     setTheme(el('s-theme').value);
