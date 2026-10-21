@@ -148,6 +148,9 @@ export function appendLine(line, scroll = true, lastReadId = null) {
         `<span class="msg-text">${ansiToHtml(sub)}</span>`;
     }
     box.appendChild(row);
+    // Settings → show images & videos automatically (loads them from the
+    // linked site, so it's off by default)
+    if (state.settings.autoMedia) row.querySelectorAll('.media-toggle').forEach(toggleMedia);
   });
 
   if (scroll) {
@@ -158,6 +161,48 @@ export function appendLine(line, scroll = true, lastReadId = null) {
       showNewMsgBanner(state.scroll.newCount);
     }
   }
+}
+
+// ─── Inline images / videos ───────────────────────────────────────────────────
+// "Show Image" / "Show Video" buttons (added by ansiToHtml) toggle a preview
+// loaded straight from the linked site.
+export function toggleMedia(btn) {
+  const url      = btn.dataset.url.replace(/&amp;/g, '&');
+  const type     = btn.dataset.type;
+  const existing = btn.nextElementSibling;
+  if (existing && existing.classList.contains('media-preview')) {
+    existing.remove();
+    btn.textContent = type === 'img' ? 'Show Image' : 'Show Video';
+    return;
+  }
+  const wrap = document.createElement('span');
+  wrap.className = 'media-preview';
+  // Media arriving late would push the view up; stay at the bottom if pinned
+  const keepPinned = () => {
+    const box = el('messages');
+    if (state.scroll.pinned) box.scrollTop = box.scrollHeight;
+  };
+  if (type === 'img') {
+    const img     = document.createElement('img');
+    img.src       = url;
+    img.className = 'preview-img';
+    img.alt       = 'image';
+    img.title     = 'Click to open full size';
+    img.loading   = 'lazy';
+    img.addEventListener('load', keepPinned);
+    img.addEventListener('click', () => window.open(url, '_blank', 'noopener'));
+    wrap.appendChild(img);
+  } else {
+    const vid     = document.createElement('video');
+    vid.src       = url;
+    vid.controls  = true;
+    vid.preload   = 'metadata';   // first frame and duration, no autoplay
+    vid.className = 'preview-vid';
+    vid.addEventListener('loadedmetadata', keepPinned);
+    wrap.appendChild(vid);
+  }
+  btn.after(wrap);
+  btn.textContent = type === 'img' ? 'Hide Image' : 'Hide Video';
 }
 
 export function sysMsg(id, text) {

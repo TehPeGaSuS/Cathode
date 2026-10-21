@@ -7,7 +7,8 @@ import { initTheme, toggleTheme,
          initSettingsPanel }                        from './settings.js';
 import { connect, disconnect, wsSend }              from './connection.js';
 import { toggleFilterLines, renderMessages,
-         renderChatHeader, applyPrefixWidth }       from './chat.js';
+         renderChatHeader, applyPrefixWidth,
+         toggleMedia }                              from './chat.js';
 import { sendInput, onInputKey, triggerTabComplete } from './input.js';
 import { uploadFile, initDragDrop,
          updateUploadButtonVisibility }              from './upload.js';
@@ -144,34 +145,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // ── Media preview (document-level delegation) ─────────────────────────────
   document.addEventListener('click', e => {
     const btn = e.target.closest('.media-toggle');
-    if (!btn) return;
-    const url      = btn.dataset.url.replace(/&amp;/g, '&');
-    const type     = btn.dataset.type;
-    const existing = btn.nextElementSibling;
-    if (existing && existing.classList.contains('media-preview')) {
-      existing.remove();
-      btn.textContent = type === 'img' ? 'Show Image' : 'Show Video';
-      return;
-    }
-    const wrap = document.createElement('span');
-    wrap.className = 'media-preview';
-    if (type === 'img') {
-      const img     = document.createElement('img');
-      img.src       = url;
-      img.className = 'preview-img';
-      img.alt       = 'image';
-      img.title     = 'Click to open full size';
-      img.addEventListener('click', () => window.open(url, '_blank'));
-      wrap.appendChild(img);
-    } else {
-      const vid     = document.createElement('video');
-      vid.src       = url;
-      vid.controls  = true;
-      vid.className = 'preview-vid';
-      wrap.appendChild(vid);
-    }
-    btn.after(wrap);
-    btn.textContent = type === 'img' ? 'Hide Image' : 'Hide Video';
+    if (btn) toggleMedia(btn);
   });
 
   // ── Theme ─────────────────────────────────────────────────────────────────

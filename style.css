@@ -819,6 +819,15 @@ body.dim-joins .msg-joinpart { opacity: 0.5; }
 
 .settings-note { font-size: 11px; color: var(--status-disc); margin-top: -4px; }
 .settings-note:empty { display: none; }
+.settings-warn {
+  font-size: 11px;
+  line-height: 1.45;
+  color: #cc8800;
+  border-left: 2px solid currentColor;
+  padding: 2px 0 2px 8px;
+  margin: -4px 0 4px;
+}
+[data-theme="light"] .settings-warn { color: #885500; }
 
 /* ─── Media preview ──────────────────────────────────────────────────────── */
 .media-toggle {
