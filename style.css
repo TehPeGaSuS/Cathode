@@ -1238,6 +1238,11 @@ body.chat-mode #footer { display: none; }   /* credits live on the connect scree
 /* Buttons that only make sense once the sidebar/nicklist become drawers */
 .mobile-only { display: none; }
 
+/* Desktop: Enter sends, like every desktop IRC client — no SEND button */
+@media (min-width: 701px) {
+  #send-btn { display: none; }
+}
+
 /* Touch screens: no hover, so no hover-only × on buffer rows — closing is in
    the long-press menu instead, away from where a tap opens the buffer.
    Long-press opens line/buffer menus, so don't start a text selection. */
@@ -1442,6 +1447,9 @@ body.chat-mode #footer { display: none; }   /* credits live on the connect scree
   #send-btn .send-label { display: none; }
   #send-btn svg { display: block; margin: 0 auto; }
   #send-btn { color: var(--fg); }
+  /* The keyboard's Send key (enterkeyhint="send") does the same job */
+  body.hide-send #send-btn,
+  body.hide-tab #tab-complete-btn { display: none; }
 
   /* Mobile keyboards have their own native emoji picker — the bundled one
      just takes up inputbar space that's better spent on tab-complete,

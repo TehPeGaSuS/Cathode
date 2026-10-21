@@ -82,6 +82,8 @@ weechat-android:
 - The **back button** closes the open menu or drawer instead of leaving
 - Nicks are shown inline before the text by default; turn off *Inline nicks*
   in Settings for the aligned column
+- The keyboard's Send key sends; the on-screen send and TAB buttons can be
+  hidden in Settings (on desktop, Enter sends and there's no SEND button)
 
 Installed as a PWA it runs full screen, and the layout respects notches and
 the home indicator.

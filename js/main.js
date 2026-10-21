@@ -3,7 +3,7 @@ import { initTheme, toggleTheme,
          openSettings, closeSettings,
          saveSettingsPanel, updateBackendVis,
          checkPort, openCertPage,
-         applyInlineNicks }                         from './settings.js';
+         applyPhoneLayout }                         from './settings.js';
 import { connect, disconnect, wsSend }              from './connection.js';
 import { toggleSmartFilter }                        from './chat.js';
 import { sendInput, onInputKey, triggerTabComplete } from './input.js';
@@ -23,7 +23,7 @@ const el = id => document.getElementById(id);
 
 document.addEventListener('DOMContentLoaded', () => {
   initTheme();
-  applyInlineNicks();
+  applyPhoneLayout();
 
   // ── Operator config (config.js → window.CATHODE_CONFIG) ──────────────────
   const cfg = window.CATHODE_CONFIG || {};

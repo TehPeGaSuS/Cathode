@@ -36,6 +36,8 @@ export function openSettings() {
   el('s-imgur-key').value      = s.imgurClientId || '';
   el('s-prefix-max').value     = s.prefixAlignMax || state.prefixAlignMax;
   el('s-inline-nicks').checked = s.inlineNicks !== false;
+  el('s-show-send').checked    = s.showSend    !== false;
+  el('s-show-tab').checked     = s.showTab     !== false;
   updateBackendVis();
   el('settings-overlay').style.display = '';
   overlayOpened('settings', hideSettings);
@@ -51,9 +53,14 @@ export function closeSettings() {
   overlayClosed('settings');
 }
 
-// Phones: nick inline before the text instead of a right-aligned column
-export function applyInlineNicks() {
-  document.body.classList.toggle('inline-nicks', state.settings.inlineNicks !== false);
+// Phone-only preferences (the CSS applies these classes below 700px only):
+// nick inline before the text instead of a right-aligned column, and the
+// send / tab buttons, which like weechat-android are on unless turned off.
+export function applyPhoneLayout() {
+  const s = state.settings;
+  document.body.classList.toggle('inline-nicks', s.inlineNicks !== false);
+  document.body.classList.toggle('hide-send',    s.showSend === false);
+  document.body.classList.toggle('hide-tab',     s.showTab  === false);
 }
 
 export function saveSettingsPanel() {
@@ -67,7 +74,9 @@ export function saveSettingsPanel() {
     applyPrefixWidth();
   }
   state.settings.inlineNicks = el('s-inline-nicks').checked;
-  applyInlineNicks();
+  state.settings.showSend    = el('s-show-send').checked;
+  state.settings.showTab     = el('s-show-tab').checked;
+  applyPhoneLayout();
   saveSettings();
   updateUploadButtonVisibility();
   closeSettings();
