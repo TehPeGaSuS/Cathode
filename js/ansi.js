@@ -1,3 +1,5 @@
+import { embedFor } from './embeds.js';
+
 // ─── ANSI colour palette ──────────────────────────────────────────────────────
 export const ANSI16 = [
   '#1a1a1a','#cc3333','#33cc33','#cccc33',
@@ -89,8 +91,11 @@ export function ansiToHtml(text) {
     const href  = url.replace(/&amp;/g, '&');
     const isImg = /\.(png|jpe?g|gif|webp|svg|bmp)(\?.*)?$/i.test(href);
     const isVid = /\.(mp4|webm|ogv|mov)(\?.*)?$/i.test(href);
+    const embed = !isImg && !isVid && embedFor(href);   // YouTube, Twitch, Spotify, …
     const btn   = (isImg || isVid)
       ? ` <button class="media-toggle" data-url="${href}" data-type="${isImg?'img':'vid'}">${isImg?'Show Image':'Show Video'}</button>`
+      : embed
+      ? ` <button class="media-toggle" data-url="${href}" data-type="embed">▶ ${embed.provider}</button>`
       : '';
     return `<a href="${href}" target="_blank" rel="noopener noreferrer">${url}</a>${btn}`;
   });

@@ -1,6 +1,7 @@
 import { state, saveSettings } from './state.js';
 import { ansiToHtml } from './ansi.js';
 import { applySearch } from './search.js';
+import { embedFor } from './embeds.js';
 
 const el = id => document.getElementById(id);
 
@@ -150,7 +151,7 @@ export function appendLine(line, scroll = true, lastReadId = null) {
     box.appendChild(row);
     // Settings → show images & videos automatically (loads them from the
     // linked site, so it's off by default)
-    if (state.settings.autoMedia) row.querySelectorAll('.media-toggle').forEach(toggleMedia);
+    if (state.settings.autoMedia) row.querySelectorAll('.media-toggle').forEach(b => toggleMedia(b, { auto: true }));
   });
 
   if (scroll) {
@@ -164,15 +165,19 @@ export function appendLine(line, scroll = true, lastReadId = null) {
 }
 
 // ─── Inline images / videos ───────────────────────────────────────────────────
-// "Show Image" / "Show Video" buttons (added by ansiToHtml) toggle a preview
-// loaded straight from the linked site.
-export function toggleMedia(btn) {
+// "Show Image" / "Show Video" / "▶ YouTube" buttons (added by ansiToHtml)
+// toggle a preview loaded straight from the linked site. Streaming players
+// only load on a click; shown automatically they start as a thumbnail card.
+const btnLabel = (type, url) =>
+  type === 'img' ? 'Show Image' : type === 'vid' ? 'Show Video' : `▶ ${embedFor(url)?.provider || 'Play'}`;
+
+export function toggleMedia(btn, { auto = false } = {}) {
   const url      = btn.dataset.url.replace(/&amp;/g, '&');
   const type     = btn.dataset.type;
   const existing = btn.nextElementSibling;
   if (existing && existing.classList.contains('media-preview')) {
     existing.remove();
-    btn.textContent = type === 'img' ? 'Show Image' : 'Show Video';
+    btn.textContent = btnLabel(type, url);
     return;
   }
   const wrap = document.createElement('span');
@@ -182,6 +187,17 @@ export function toggleMedia(btn) {
     const box = el('messages');
     if (state.scroll.pinned) box.scrollTop = box.scrollHeight;
   };
+  if (type === 'embed') {
+    const e = embedFor(url);
+    if (!e) return;
+    wrap.classList.add('embed', 'kind-' + e.kind);
+    if (auto) wrap.appendChild(embedCard(e, wrap));
+    else      wrap.appendChild(embedFrame(e));
+    btn.after(wrap);
+    btn.textContent = 'Hide ' + e.provider;
+    requestAnimationFrame(keepPinned);
+    return;
+  }
   if (type === 'img') {
     const img     = document.createElement('img');
     img.src       = url;
@@ -203,6 +219,38 @@ export function toggleMedia(btn) {
   }
   btn.after(wrap);
   btn.textContent = type === 'img' ? 'Hide Image' : 'Hide Video';
+}
+
+function embedFrame(e) {
+  const f = document.createElement('iframe');
+  f.src   = e.src;
+  f.title = e.provider + ' player';
+  f.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen; clipboard-write';
+  f.allowFullscreen = true;
+  // YouTube refuses embeds that don't say which site they're on (error 153)
+  f.referrerPolicy  = 'strict-origin-when-cross-origin';
+  f.className = 'embed-frame';
+  return f;
+}
+
+// Click-to-play card: no player code loads until it's tapped (the YouTube
+// thumbnail is the only request, and only when shown automatically)
+function embedCard(e, wrap) {
+  const card = document.createElement('button');
+  card.type      = 'button';
+  card.className = 'embed-card';
+  card.setAttribute('aria-label', `Play on ${e.provider}`);
+  if (e.thumb) {
+    const img = document.createElement('img');
+    img.src = e.thumb; img.alt = ''; img.loading = 'lazy';
+    card.appendChild(img);
+  }
+  const play = document.createElement('span');
+  play.className   = 'embed-play';
+  play.textContent = `▶ ${e.provider}`;
+  card.appendChild(play);
+  card.addEventListener('click', () => card.replaceWith(embedFrame(e)));
+  return card;
 }
 
 export function sysMsg(id, text) {

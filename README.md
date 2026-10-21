@@ -84,6 +84,14 @@ Drop three files on a web server and go.
   linked images/videos as they arrive. They load straight from the linked
   site, which sees your IP address; with it off they only load when you
   press *Show Image* / *Show Video*
+- **Streaming players** — links from YouTube (incl. Shorts, live and start
+  times), Vimeo, Dailymotion, Twitch (channels, VODs, clips), Kick,
+  Streamable, TikTok, SoundCloud and Spotify get a ▶ button that plays them
+  inside Cathode with the platform's own embed player (YouTube via
+  youtube-nocookie.com). With *Show images & videos automatically* on they
+  appear as click-to-play cards; nothing from the player loads until you
+  tap. Twitch only embeds on pages served over HTTPS, and Spotify plays
+  30-second previews unless you're logged in to Spotify in that browser
 - **Keep screen on while open** (Settings, off by default) — holds a screen
   wake lock while Cathode is connected and visible, so the phone doesn't
   lock and background the page. Needs HTTPS (or localhost). Browsers don't

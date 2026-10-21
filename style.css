@@ -856,6 +856,39 @@ body.dim-joins .msg-joinpart { opacity: 0.5; }
   cursor: pointer;
 }
 .preview-img:hover { border-color: var(--border-l); }
+/* Streaming players (YouTube, Twitch, Spotify, …) */
+.media-preview.embed { display: block; width: min(480px, 100%); }
+.media-preview.embed.kind-video    { aspect-ratio: 16 / 9; }
+.media-preview.embed.kind-vertical { width: min(325px, 100%); aspect-ratio: 9 / 16; max-height: 75vh; }
+.media-preview.embed.kind-audio      { height: 152px; }
+.media-preview.embed.kind-audio-tall { height: 352px; }
+.embed-frame { width: 100%; height: 100%; border: 1px solid var(--border); display: block; background: #000; }
+.embed-card {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 80px;
+  border: 1px solid var(--border);
+  background: #000;
+  cursor: pointer;
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.embed-card img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.85; }
+.embed-play {
+  position: relative;
+  background: rgba(0, 0, 0, 0.75);
+  color: #fff;
+  font-family: inherit;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  padding: 8px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+}
+.embed-card:hover .embed-play { background: rgba(0, 0, 0, 0.9); }
 .preview-vid {
   max-width: min(480px, 100%);
   display: block;
