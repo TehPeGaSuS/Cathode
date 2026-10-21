@@ -6,7 +6,7 @@ import { state } from './state.js';
 import { wsSend, disconnect } from './connection.js';
 import { ansiToHtml } from './ansi.js';
 import { openSheet, confirmSheet, promptSheet } from './sheet.js';
-import { toggleSmartFilter, isSmartFilterable } from './chat.js';
+import { toggleFilterLines, hideFiltered } from './chat.js';
 import { toggleTheme, openSettings } from './settings.js';
 import { uploadAvailable, pickUpload } from './upload.js';
 import { recentMessages } from './input.js';
@@ -224,10 +224,8 @@ export function openOverflowSheet() {
   const buf   = state.buffers.get(state.activeBufferId);
   const items = [];
   if (buf) {
-    if (isSmartFilterable(buf)) {
-      items.push({ icon: '⇅', label: 'Hide joins/parts', checked: state.smartFilter.get(buf.id) !== false,
-                   onSelect: toggleSmartFilter });
-    }
+    items.push({ icon: '⇅', label: 'Hide filtered lines', hint: 'WeeChat /filter',
+                 checked: hideFiltered(), onSelect: toggleFilterLines });
     items.push({ icon: '⌕', label: 'Search', onSelect: openSearch });
     if (recentMessages().length) items.push({ icon: '↺', label: 'Recent messages', onSelect: openRecentSheet });
     if (uploadAvailable()) items.push({ icon: '⇪', label: 'Upload file', onSelect: pickUpload });

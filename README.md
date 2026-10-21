@@ -76,8 +76,8 @@ Drop three files on a web server and go.
   triggers an immediate reconnect, so a phone that slept or changed network
   doesn't sit on a silent "connected" socket
 - **Settings** — theme (System/Dark/Light), text size, timestamps
-  (12:34:56, 12:34, hidden), nick width, `<nick>` brackets, dimmed
-  joins/parts, whether reading in Cathode marks buffers read in WeeChat, and
+  (12:34:56, 12:34, hidden), nick width, `<nick>` brackets, hide filtered
+  lines, dimmed joins/parts, whether reading in Cathode marks buffers read in WeeChat, and
   notifications (switched on here, so the browser asks for permission from a
   tap; on iPhone they need Cathode added to the Home Screen)
 - **Keep screen on while open** (Settings, off by default) — holds a screen
@@ -85,6 +85,23 @@ Drop three files on a web server and go.
   lock and background the page. Needs HTTPS (or localhost). Browsers don't
   let a page stay alive once you switch away; on return Cathode reconnects
   and reloads the latest lines at once
+
+---
+
+## Filtered lines and the smart filter
+
+Cathode follows WeeChat's own filters, like weechat-android: lines hidden by
+`/filter` arrive marked as not displayed, and Cathode hides them too (and
+doesn't count them as unread). *Hide filtered lines* — the FILTERED button
+on desktop, ⋮ on phones, or Settings — shows them anyway, slightly faded.
+
+Joins/parts/quits are only hidden if WeeChat filters them. For IRC's smart
+filter (hide joins/parts of people who haven't spoken recently), WeeChat
+needs the filter itself — `irc.look.smart_filter` only tags the lines:
+
+```
+/filter add irc_smart * irc_smart_filter *
+```
 
 ---
 
@@ -96,7 +113,7 @@ weechat-android:
 - **App bar** — ☰ buffer list (a dot means activity elsewhere), the buffer
   name with its network and user count, a 🔔 button that jumps to the next
   highlight or unread private message, 👥 users and ⋮ for everything else
-  (topic, hide joins/parts, leave/close, theme, settings, disconnect)
+  (topic, hide filtered lines, leave/close, theme, settings, disconnect)
 - **Swipe** right anywhere (edges included) for the buffer list, left for
   users. Cathode turns off the browser's own swipe back/forward (and
   pull-to-refresh) for this. Android's system back gesture still acts as

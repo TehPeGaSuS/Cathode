@@ -126,7 +126,7 @@
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15zM10 20.5a2 2 0 0 0 4 0"/></svg>
           <span class="hot-count">0</span>
         </button>
-        <button id="smartfilter-btn" class="header-btn" style="display:none">JOIN/PART: HIDDEN</button>
+        <button id="smartfilter-btn" class="header-btn" style="display:none">FILTERED: HIDDEN</button>
         <button id="search-btn" class="header-btn desktop-only" title="Search this buffer (Ctrl+Shift+F)">SEARCH</button>
         <button id="nicklist-toggle" class="hdr-icon mobile-only" aria-label="Users">
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 19c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><path d="M16 5a3 3 0 0 1 0 6M18 13.8c1.9.7 3 2.5 3 5.2"/></svg>
@@ -259,6 +259,10 @@
       <label class="checkbox-row">
         <input id="s-enclose-nick" type="checkbox">
         &lt;NICK&gt; BRACKETS AROUND NICKNAMES
+      </label>
+      <label class="checkbox-row">
+        <input id="s-filter-lines" type="checkbox">
+        HIDE LINES FILTERED BY WEECHAT (/filter, smart filter)
       </label>
       <label class="checkbox-row">
         <input id="s-dim-joins" type="checkbox">

@@ -760,6 +760,7 @@ body.time-none  .msg-time { display: none !important; }
 
 /* Joins/parts/quits/nick changes, when shown */
 body.dim-joins .msg-joinpart { opacity: 0.5; }
+.msg-row.msg-filtered { opacity: 0.55; }   /* normally hidden by a WeeChat filter */
 
 /* "Fetch more lines" (also fetched automatically on reaching the top) */
 .load-older {

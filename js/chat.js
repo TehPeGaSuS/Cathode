@@ -1,4 +1,4 @@
-import { state } from './state.js';
+import { state, saveSettings } from './state.js';
 import { ansiToHtml } from './ansi.js';
 import { applySearch } from './search.js';
 
@@ -32,10 +32,10 @@ export function applyPrefixWidth() {
 }
 
 // ─── Chat header ──────────────────────────────────────────────────────────────
-export function isSmartFilterable(buf) {
-  const lv = buf.local_variables || {};
-  return lv.plugin === 'irc' && lv.type !== 'server';
-}
+// Lines WeeChat's own /filter hides (the smart filter "irc_smart" included)
+// arrive with displayed: false. Like weechat-android's "Filter lines", one
+// global switch either respects that (default) or shows everything.
+export const hideFiltered = () => state.settings.filterLines !== false;
 
 export function renderChatHeader() {
   const buf = state.buffers.get(state.activeBufferId);
@@ -50,24 +50,18 @@ export function renderChatHeader() {
   el('chat-sub').textContent = sub.filter(Boolean).join(' · ');
   el('nicklist-toggle').style.display = buf.nicklist || n ? '' : 'none';
   const sfBtn = el('smartfilter-btn');
-  if (isSmartFilterable(buf)) {
-    const on = state.smartFilter.get(buf.id) !== false;
-    sfBtn.textContent = on ? 'JOIN/PART: HIDDEN' : 'JOIN/PART: SHOWN';
-    sfBtn.title       = on ? 'Show joins, parts and quits' : 'Hide joins, parts and quits';
-    sfBtn.classList.toggle('sf-off', !on);
-    sfBtn.style.display = '';
-  } else {
-    sfBtn.style.display = 'none';
-  }
+  const on    = hideFiltered();
+  sfBtn.textContent = on ? 'FILTERED: HIDDEN' : 'FILTERED: SHOWN';
+  sfBtn.title       = (on ? 'Show' : 'Hide') + " lines hidden by WeeChat's /filter (e.g. the smart filter)";
+  sfBtn.classList.toggle('sf-off', !on);
+  sfBtn.style.display = '';
 }
 
-export function toggleSmartFilter() {
-  const id = state.activeBufferId;
-  if (id == null) return;
-  const cur = state.smartFilter.get(id) !== false;
-  state.smartFilter.set(id, !cur);
+export function toggleFilterLines() {
+  state.settings.filterLines = !hideFiltered();
+  saveSettings();
   renderChatHeader();
-  const buf = state.buffers.get(id);
+  const buf = state.buffers.get(state.activeBufferId);
   if (buf) renderMessages(buf);
 }
 
@@ -115,11 +109,7 @@ export function appendLine(line, scroll = true, lastReadId = null) {
   // has to go before the next line that is shown.
   if (isLastRead) box.dataset.insertDividerAfterNext = '1';
 
-  if (!line.displayed) return;
-  // Smart filter: skip join/part/quit noise tagged by WeeChat
-  if (line.tags && line.tags.includes('irc_smart_filter')) {
-    if (state.smartFilter.get(state.activeBufferId) !== false) return;
-  }
+  if (!line.displayed && hideFiltered()) return;
 
   // Read marker divider — insert before the first unread line
   if (isLastRead) {
@@ -137,7 +127,8 @@ export function appendLine(line, scroll = true, lastReadId = null) {
   let   prefix   = line.prefix ? ansiToHtml(truncPrefix(line.prefix)) : '';
   if (prefix && state.settings.encloseNick && isNickMessage(line))
     prefix = `<span class="nick-chev">&lt;</span>${prefix}<span class="nick-chev">&gt;</span>`;
-  const hlClass  = (line.highlight ? ' msg-highlight' : '') + (isJoinPart(line) ? ' msg-joinpart' : '');
+  const hlClass  = (line.highlight ? ' msg-highlight' : '') + (isJoinPart(line) ? ' msg-joinpart' : '')
+                 + (line.displayed ? '' : ' msg-filtered');   // shown although WeeChat filters it
 
   subLines.forEach((sub, i) => {
     const row = document.createElement('div');

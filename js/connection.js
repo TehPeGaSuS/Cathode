@@ -319,7 +319,6 @@ function handleInit(msg) {
     const lines = buf.lines || [];
     state.buffers.set(id, { ...buf, id, lines, nicks, unread:0, highlight:0,
       ...readMarker(buf), allLoaded: lines.length < INIT_LINES });
-    if (!state.smartFilter.has(id)) state.smartFilter.set(id, true);
   }
   setConnecting(false);
   el('disconnect-btn').style.display = '';

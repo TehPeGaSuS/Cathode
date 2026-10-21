@@ -6,8 +6,8 @@ import { initTheme, toggleTheme,
          applyDisplaySettings,
          initSettingsPanel }                        from './settings.js';
 import { connect, disconnect, wsSend }              from './connection.js';
-import { toggleSmartFilter, renderMessages,
-         applyPrefixWidth }                         from './chat.js';
+import { toggleFilterLines, renderMessages,
+         renderChatHeader, applyPrefixWidth }       from './chat.js';
 import { sendInput, onInputKey, triggerTabComplete } from './input.js';
 import { uploadFile, initDragDrop,
          updateUploadButtonVisibility }              from './upload.js';
@@ -97,7 +97,7 @@ document.addEventListener('DOMContentLoaded', () => {
   el('tab-complete-btn').addEventListener('click', triggerTabComplete);
 
   // ── Smart filter ──────────────────────────────────────────────────────────
-  el('smartfilter-btn').addEventListener('click', toggleSmartFilter);
+  el('smartfilter-btn').addEventListener('click', toggleFilterLines);
 
   // ── Buffer list (filter, close buttons, long-press) and join ──────────────
   initBufferList();
@@ -122,6 +122,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Text size / timestamps / dimming changed in Settings
   window.addEventListener('cathode:displaychange', () => {
     applyPrefixWidth();
+    renderChatHeader();
     const buf = state.buffers.get(state.activeBufferId);
     if (buf) renderMessages(buf, true);
   });

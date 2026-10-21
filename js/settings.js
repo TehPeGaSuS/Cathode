@@ -62,6 +62,7 @@ export function openSettings() {
   el('s-text-size').value      = s.textSize   || '';
   el('s-timestamps').value     = s.timestamps || 'HH:mm:ss';
   el('s-dim-joins').checked    = s.dimJoins   !== false;
+  el('s-filter-lines').checked = s.filterLines !== false;
   el('s-enclose-nick').checked = !!s.encloseNick;
   el('s-sync-read').checked    = s.syncRead   !== false;
   el('s-notifications').checked = notificationsEnabled();
@@ -152,6 +153,7 @@ export function saveSettingsPanel() {
   state.settings.textSize    = el('s-text-size').value;
   state.settings.timestamps  = el('s-timestamps').value;
   state.settings.dimJoins    = el('s-dim-joins').checked;
+  state.settings.filterLines = el('s-filter-lines').checked;
   state.settings.encloseNick = el('s-enclose-nick').checked;
   state.settings.syncRead    = el('s-sync-read').checked;
   state.settings.notifications = el('s-notifications').checked;

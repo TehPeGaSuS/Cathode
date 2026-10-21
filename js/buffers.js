@@ -1,7 +1,7 @@
 import { state, saveSettings } from './state.js';
 import { parseId, readMarker, wsSend } from './connection.js';
 import { nickColorToCss, safeFg } from './ansi.js';
-import { renderMessages, renderChatHeader, hideNewMsgBanner, appendLine } from './chat.js';
+import { renderMessages, renderChatHeader, hideNewMsgBanner, appendLine, hideFiltered } from './chat.js';
 import { maybeNotify, updateTitle } from './notifications.js';
 import { closeDrawer, onLongPress, isNarrow } from './layout.js';
 import { openNickSheet, matchesPending, openBufferSheet, closeBuffer } from './actions.js';
@@ -27,7 +27,6 @@ export function onBufOpened(buf) {
   const lines = all.slice(-MAX_LINES);
   state.buffers.set(id, { ...buf, id, lines, nicks, unread:0, highlight:0, ...readMarker(buf),
                           allLoaded: lines.length === all.length });
-  if (!state.smartFilter.has(id)) state.smartFilter.set(id, true);
   rebuildBufList();
   // A /join or /query sent from Cathode: switch to it here (WeeChat itself
   // was told -noswitch)
@@ -98,25 +97,22 @@ export function onLineAdded(rawId, line) {
   }
   if (state.activeBufferId === id) {
     appendLine(line);
-  } else if (countsAsUnread(line, b)) {
+  } else if (countsAsUnread(line)) {
     b.unread++;
     if (line.highlight) b.highlight++;
     paintNode(id);
   }
-  if (line.displayed) maybeNotify(b, line, activateBuffer);
+  if (line.displayed || !hideFiltered()) maybeNotify(b, line, activateBuffer);
   updateTitle();
 }
 
-// Match WeeChat's hotlist: only displayed lines with notify level ≥ message
-// (so no joins/parts at level 0, no notify_none at -1), and nothing Cathode's
-// own smart filter would hide.
-function countsAsUnread(line, buf) {
-  if (!line.displayed) return false;
+// Match WeeChat's hotlist: notify level ≥ message (so no joins/parts at
+// level 0, no notify_none at -1); lines hidden by a WeeChat filter count as
+// read while filtered lines are hidden, as in weechat-android.
+function countsAsUnread(line) {
+  if (!line.displayed && hideFiltered()) return false;
   if (line.highlight) return true;
-  if (!(line.notify_level >= 1)) return false;
-  if (line.tags && line.tags.includes('irc_smart_filter')
-      && state.smartFilter.get(buf.id) !== false) return false;
-  return true;
+  return line.notify_level >= 1;
 }
 
 // buffer_line_data_changed: a line was updated in place (same id).

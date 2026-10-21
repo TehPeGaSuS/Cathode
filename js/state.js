@@ -26,5 +26,4 @@ export const state = {
   settings:       loadSettings(),
   prefixAlignMax: 16,          // mirrors weechat.look.prefix_align_max
   scroll:         { pinned: true, newCount: 0 },
-  smartFilter:    new Map(),   // bufferId → boolean
 };
