@@ -5,7 +5,7 @@
 # Cathode
 
 A terminal-style web client for [WeeChat](https://weechat.org/), using the
-modern **API relay protocol** (WeeChat ≥ 4.0). No build step. No framework.
+modern **API relay protocol** (WeeChat ≥ 4.5.0). No build step. No framework.
 Drop three files on a web server and go.
 
 ---
@@ -24,7 +24,12 @@ Drop three files on a web server and go.
 
 ## Requirements
 
-- **WeeChat ≥ 4.0** with the relay plugin enabled and the **api** protocol configured
+- **WeeChat ≥ 4.5.0** with the relay plugin enabled and the **api** protocol configured
+  (the api relay exists since 4.3.0, but passing the password in the WebSocket
+  subprotocol and batching requests — both used by Cathode — need 4.5.0)
+- No TOTP: WeeChat only accepts the one-time code in an `x-weechat-totp`
+  header, which browsers can't set on a WebSocket, so leave
+  `relay.network.totp_secret` empty
 - A web server to serve the three static files (nginx, Caddy, Apache, or even
   `python3 -m http.server`)
 - A domain + TLS cert for production use (certbot/Let's Encrypt recommended)
@@ -56,6 +61,30 @@ Drop three files on a web server and go.
 > **Port note:** Ports 6665–6669 and 6697 (the traditional IRC port range)
 > are blocked by all major browsers. Use any other port — 9000 is a safe
 > default.
+
+---
+
+## On a phone
+
+Below 700px wide Cathode switches to a phone layout, modelled on
+weechat-android:
+
+- **App bar** — ☰ buffer list (a dot means activity elsewhere), the buffer
+  name with its network and user count, a 🔔 button that jumps to the next
+  highlight or unread private message, 👥 users and ⋮ for everything else
+  (topic, hide joins/parts, leave/close, theme, settings, disconnect)
+- **Swipe** right across the messages for the buffer list, left for users
+- **Tap a nick** (in the list or in front of a message) for Mention, Private
+  message, Whois, Ignore and — as an op — Kick / Kick & ban with a reason
+- **Long-press a message** to mention its author or copy it
+- **Long-press a buffer** to mark it read or leave/close it (with a
+  confirmation — there's no one-tap close on touch screens)
+- The **back button** closes the open menu or drawer instead of leaving
+- Nicks are shown inline before the text by default; turn off *Inline nicks*
+  in Settings for the aligned column
+
+Installed as a PWA it runs full screen, and the layout respects notches and
+the home indicator.
 
 ---
 
@@ -212,8 +241,8 @@ Cathode/
 ## How it works
 
 Cathode uses WeeChat's **API relay protocol** — a clean JSON-over-WebSocket
-protocol introduced in WeeChat 4.0, replacing the old binary `weechat` relay
-protocol that Glowing Bear was built on.
+protocol introduced in WeeChat 4.3.0, alongside the older binary `weechat`
+relay protocol that Glowing Bear was built on.
 
 On connect, Cathode:
 1. Opens a WebSocket to `wss://host:port/api` with the password encoded in
@@ -223,6 +252,11 @@ On connect, Cathode:
    then subscribe to real-time events
 3. Listens for push events (`buffer_line_added`, `buffer_opened`,
    `nicklist_nick_added`, etc.) and updates the UI accordingly
+
+Switching buffers in Cathode never changes what WeeChat's own windows show:
+the read marker and hotlist are updated with `/buffer set unread` and
+`/buffer set hotlist -1` sent to the buffer concerned. If you restrict
+`relay.network.commands`, keep `buffer` allowed for this to work.
 
 ---
 

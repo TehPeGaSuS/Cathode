@@ -1,9 +1,10 @@
 import { state, saveSettings } from './state.js';
-import { parseId } from './connection.js';
-import { ansiToHtml, nickColorToCss, safeFg } from './ansi.js';
+import { parseId, readMarker, wsSend } from './connection.js';
+import { nickColorToCss, safeFg } from './ansi.js';
 import { renderMessages, renderChatHeader, hideNewMsgBanner, appendLine } from './chat.js';
 import { maybeNotify, updateTitle } from './notifications.js';
-import { closeDrawer } from './layout.js';
+import { closeDrawer, onLongPress, isNarrow } from './layout.js';
+import { openNickSheet, matchesPending, openBufferSheet, closeBuffer } from './actions.js';
 
 const el  = id => document.getElementById(id);
 const esc = s  => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -14,12 +15,17 @@ const MAX_LINES = 2000;
 // ─── Buffer events ────────────────────────────────────────────────────────────
 export function onBufOpened(buf) {
   if (!buf) return;
-  const id = parseId(buf.id);
-  buf = { ...buf, id };
-  state.buffers.set(id, { ...buf, lines: buf.lines||[], nicks:{}, unread:0, highlight:0 });
+  const id    = parseId(buf.id);
+  const nicks = {};
+  collectNicks(buf.nicklist_root, nicks);
+  // buffer_opened carries *all* lines of the buffer, so apply the cap here too
+  const lines = (buf.lines || []).slice(-MAX_LINES);
+  state.buffers.set(id, { ...buf, id, lines, nicks, unread:0, highlight:0, ...readMarker(buf) });
   if (!state.smartFilter.has(id)) state.smartFilter.set(id, true);
   rebuildBufList();
-  if (state.activeBufferId == null) activateBuffer(id);
+  // A /join or /query sent from Cathode: switch to it here (WeeChat itself
+  // was told -noswitch)
+  if (state.activeBufferId == null || matchesPending(state.buffers.get(id))) activateBuffer(id);
 }
 
 export function onBufUpdated(buf) {
@@ -27,9 +33,22 @@ export function onBufUpdated(buf) {
   const id = parseId(buf.id);
   const b  = state.buffers.get(id);
   if (!b) return;
+  const relist = b.number !== buf.number || b.hidden !== buf.hidden
+    || b.short_name !== buf.short_name
+    || (b.local_variables || {}).type !== (buf.local_variables || {}).type;
   Object.assign(b, { ...buf, id });
-  paintNode(id);
+  if (relist) rebuildBufList(); else paintNode(id);
   if (state.activeBufferId === id) renderChatHeader();
+}
+
+// Response to GET /api/buffers (no lines/nicks), used to resync numbers.
+export function onBufNumbers(list) {
+  let changed = false;
+  for (const buf of (list || [])) {
+    const b = state.buffers.get(parseId(buf.id));
+    if (b && b.number !== buf.number) { b.number = buf.number; changed = true; }
+  }
+  if (changed) rebuildBufList();
 }
 
 export function onBufCleared(rawId) {
@@ -54,17 +73,53 @@ export function onLineAdded(rawId, line) {
   const id = parseId(rawId);
   const b  = state.buffers.get(id);
   if (!b) return;
+
+  // Free-content buffers (/fset, /list, …) address lines by "y": a line with
+  // an existing y replaces it rather than being appended.
+  if (b.type === 'free' && line.y >= 0) {
+    const i = b.lines.findIndex(l => l.y >= line.y);
+    if (i < 0)                    b.lines.push(line);
+    else if (b.lines[i].y === line.y) b.lines[i] = line;
+    else                          b.lines.splice(i, 0, line);
+    if (state.activeBufferId === id) renderMessages(b, /* keepScroll */ true);
+    return;
+  }
+
   b.lines.push(line);
   if (b.lines.length > MAX_LINES) b.lines.splice(0, b.lines.length - MAX_LINES);
   if (state.activeBufferId === id) {
     appendLine(line);
-  } else {
+  } else if (countsAsUnread(line, b)) {
     b.unread++;
     if (line.highlight) b.highlight++;
     paintNode(id);
   }
-  maybeNotify(b, line, activateBuffer);
+  if (line.displayed) maybeNotify(b, line, activateBuffer);
   updateTitle();
+}
+
+// Match WeeChat's hotlist: only displayed lines with notify level ≥ message
+// (so no joins/parts at level 0, no notify_none at -1), and nothing Cathode's
+// own smart filter would hide.
+function countsAsUnread(line, buf) {
+  if (!line.displayed) return false;
+  if (line.highlight) return true;
+  if (!(line.notify_level >= 1)) return false;
+  if (line.tags && line.tags.includes('irc_smart_filter')
+      && state.smartFilter.get(buf.id) !== false) return false;
+  return true;
+}
+
+// buffer_line_data_changed: a line was updated in place (same id).
+export function onLineChanged(rawId, line) {
+  if (!line) return;
+  const id = parseId(rawId);
+  const b  = state.buffers.get(id);
+  if (!b) return;
+  const i = b.lines.findIndex(l => String(l.id) === String(line.id));
+  if (i < 0) return;
+  b.lines[i] = line;
+  if (state.activeBufferId === id) renderMessages(b, /* keepScroll */ true);
 }
 
 // ─── Nick events ──────────────────────────────────────────────────────────────
@@ -105,18 +160,21 @@ function scheduleRenderNicklist(buf) {
   if (nicklistRaf != null) return;
   nicklistRaf = requestAnimationFrame(() => {
     nicklistRaf = null;
-    if (state.activeBufferId === buf.id) renderNicklist(buf);
+    if (state.activeBufferId === buf.id) { renderNicklist(buf); renderChatHeader(); }
   });
 }
 
 export function renderNicklist(buf) {
   const box   = el('nicklist');
   box.innerHTML = '';
-  const nicks = Object.values(buf.nicks || {}).sort((a, b) => {
-    const w = p => p==='~'?0 : p==='&'?1 : p==='@'?2 : p==='%'?3 : p==='+'?4 : 5;
-    const d = w(a.prefix) - w(b.prefix);
-    return d !== 0 ? d : a.name.localeCompare(b.name, undefined, {sensitivity:'base'});
-  });
+  const rank  = p => p==='~'?0 : p==='&'?1 : p==='@'?2 : p==='%'?3 : p==='+'?4 : 5;
+  const nicks = Object.values(buf.nicks || {})
+    .filter(n => n.visible !== false)
+    .sort((a, b) => {
+      const d = rank((a.prefix || '').trim()) - rank((b.prefix || '').trim());
+      return d !== 0 ? d : a.name.localeCompare(b.name, undefined, {sensitivity:'base'});
+    });
+  el('nicklist-header').textContent = nicks.length ? `${nicks.length} USER${nicks.length === 1 ? '' : 'S'}` : 'NICKS';
   for (const nick of nicks) {
     const row = document.createElement('div');
     row.className    = 'nick-item';
@@ -125,82 +183,18 @@ export function renderNicklist(buf) {
     row.setAttribute('aria-label', `${nick.name} — open actions`);
     const pfxChar = (nick.prefix && nick.prefix.trim()) ? esc(nick.prefix) : ' ';
     const pfxHtml = nick.prefix_color
-      ? `<span class="nick-pfx" style="color:${nickColorToCss(nick.prefix_color)}">${pfxChar}</span>`
+      ? `<span class="nick-pfx" style="color:${safeFg(nickColorToCss(nick.prefix_color))}">${pfxChar}</span>`
       : `<span class="nick-pfx">${pfxChar}</span>`;
     const nameHtml = nick.color
       ? `<span class="nick-name" style="color:${safeFg(nickColorToCss(nick.color))}">${esc(nick.name)}</span>`
       : `<span class="nick-name">${esc(nick.name)}</span>`;
     row.innerHTML = pfxHtml + nameHtml;
-    row.addEventListener('click', () => openNickMenu(nick, buf));
+    row.addEventListener('click', () => openNickSheet(nick.name, buf, activateBuffer));
     row.addEventListener('keydown', e => {
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openNickMenu(nick, buf); }
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openNickSheet(nick.name, buf, activateBuffer); }
     });
     box.appendChild(row);
   }
-}
-
-// ─── Nick context menu ────────────────────────────────────────────────────────
-function openNickMenu(nick, buf) {
-  closeNickMenu();
-  const overlay = document.createElement('div');
-  overlay.id        = 'nick-overlay';
-  overlay.className = 'nick-overlay';
-  overlay.addEventListener('click', e => { if (e.target === overlay) closeNickMenu(); });
-
-  const menu = document.createElement('div');
-  menu.className = 'nick-menu';
-
-  const hdr = document.createElement('div');
-  hdr.className   = 'nick-menu-hdr';
-  hdr.textContent = (nick.prefix && nick.prefix.trim() ? nick.prefix : '') + nick.name;
-  menu.appendChild(hdr);
-
-  const myPfx = ownPrefix(buf);
-  const isOp  = ['@','~','&'].includes(myPfx);
-
-  const actions = [
-    { label: '💬  Query',        cmd: `/query ${nick.name}` },
-    { label: '🔍  Whois',        cmd: `/whois ${nick.name}` },
-    { label: '🔍  Whois (full)', cmd: `/whois ${nick.name} ${nick.name}` },
-    { label: '📌  Ignore',       cmd: `/ignore ${nick.name}` },
-    { label: '🔇  Kick',         cmd: `/kick ${nick.name}`,  op: true },
-    { label: '🚫  Ban',          cmd: `/ban ${nick.name}`,   op: true },
-  ];
-  for (const a of actions) {
-    if (a.op && !isOp) continue;
-    const btn = document.createElement('button');
-    btn.className   = 'nick-menu-btn';
-    btn.textContent = a.label;
-    btn.addEventListener('click', () => {
-      wsSendRef(a.cmd, buf.name);
-      closeNickMenu();
-    });
-    menu.appendChild(btn);
-  }
-
-  overlay.appendChild(menu);
-  document.body.appendChild(overlay);
-  overlay._esc = e => { if (e.key === 'Escape') closeNickMenu(); };
-  document.addEventListener('keydown', overlay._esc);
-}
-
-function closeNickMenu() {
-  const ov = document.getElementById('nick-overlay');
-  if (!ov) return;
-  document.removeEventListener('keydown', ov._esc);
-  ov.remove();
-}
-
-function ownPrefix(buf) {
-  const nick  = (buf.local_variables || {}).nick || '';
-  const entry = Object.values(buf.nicks || {}).find(n => n.name === nick);
-  return entry ? (entry.prefix || '') : '';
-}
-
-// wsSend reference — set by main.js after connection module loads
-let wsSendRef = () => {};
-export function setWsSend(fn) {
-  wsSendRef = (cmd, bufName) => fn({ request: 'POST /api/input', body: { buffer_name: bufName, command: cmd } });
 }
 
 // ─── Buffer list DOM ──────────────────────────────────────────────────────────
@@ -226,8 +220,19 @@ function bufMeta(buf) {
            isServer:!server, indent:!!server };
 }
 
+let bufFilter = '';
+
 function buildWanted() {
-  const sorted = [...state.buffers.values()].sort((a,b) => a.number - b.number);
+  const sorted = [...state.buffers.values()]
+    .filter(b => !b.hidden || b.id === state.activeBufferId)
+    .sort((a,b) => a.number - b.number);
+  // Filtering: a flat list of matches, no group headers
+  if (bufFilter) {
+    const f = bufFilter.toLowerCase();
+    return sorted
+      .filter(b => (b.short_name || '').toLowerCase().includes(f) || (b.name || '').toLowerCase().includes(f))
+      .map(buf => ({ key:bKey(buf.id), type:'match', buf }));
+  }
   const groups = new Map();
   for (const buf of sorted) {
     const m = bufMeta(buf);
@@ -245,6 +250,40 @@ function buildWanted() {
   return items;
 }
 
+// Filter box, close buttons and long-press menu of the buffer list
+export function initBufferList() {
+  const input = el('buffer-filter');
+  input.addEventListener('input', () => { bufFilter = input.value.trim(); rebuildBufList(); });
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      const first = el('buffer-list').querySelector('.buffer-item');
+      if (first) activateBuffer(first.dataset.id);
+      clearBufFilter();
+    } else if (e.key === 'Escape') {
+      clearBufFilter();
+    }
+  });
+  el('buffer-list').addEventListener('click', e => {
+    const btn = e.target.closest('.buf-close');
+    if (!btn) return;
+    e.stopPropagation();
+    const buf = state.buffers.get(btn.dataset.id);
+    if (buf) closeBuffer(buf);
+  });
+  onLongPress(el('buffer-list'), '.buffer-item', node => {
+    const buf = state.buffers.get(node.dataset.id);
+    if (buf) openBufferSheet(buf, { activate: activateBuffer, onMarkRead: b => {
+      b.unread = 0; b.highlight = 0; paintNode(b.id); updateTitle();
+    }});
+  });
+}
+
+function clearBufFilter() {
+  const input = el('buffer-filter');
+  if (!input.value) return;
+  input.value = ''; bufFilter = ''; rebuildBufList();
+}
+
 export function rebuildBufList() {
   const container = el('buffer-list');
   for (const [,node] of bufNodes) node.remove();
@@ -253,6 +292,7 @@ export function rebuildBufList() {
     const node = makeNode(item);
     bufNodes.set(item.key, node);
     container.appendChild(node);
+    if (item.buf) paintNode(item.buf.id);   // restore active/unread/badge state
   }
 }
 
@@ -334,28 +374,43 @@ export function activateBuffer(id) {
   const prev = state.activeBufferId;
   const buf  = state.buffers.get(id);
   if (!buf) return;
+  const prevBuf = prev != null && prev !== id ? state.buffers.get(prev) : null;
   state.activeBufferId  = id;
   state.scroll.pinned   = true;
   state.scroll.newCount = 0;
   buf.unread    = 0;
   buf.highlight = 0;
-  if (prev != null && prev !== id) paintNode(prev);
-  paintNode(id);
+  if (prevBuf) {
+    // Leaving a buffer: everything in it has been seen, like WeeChat does
+    // when switching away — the marker shows up there on the next visit.
+    const last = prevBuf.lines[prevBuf.lines.length - 1];
+    if (last) { prevBuf.lastReadId = String(last.id); prevBuf.firstLineNotRead = false; }
+    paintNode(prev);
+  }
+  // Hidden buffers are only listed while active, so the list changes shape
+  if (buf.hidden || (prevBuf && prevBuf.hidden)) rebuildBufList(); else paintNode(id);
   renderChatHeader();
   renderMessages(buf);
   renderNicklist(buf);
   hideNewMsgBanner();
   updateTitle();
   closeDrawer();
-  el('chat-input').focus();
+  if (bufFilter) clearBufFilter();
+  // On phones, focusing would pop the keyboard up on every buffer switch
+  if (!isNarrow()) el('chat-input').focus();
+  syncReadState(prevBuf, buf);
+}
 
-  // Sync read position back to WeeChat by switching to the buffer there too.
-  // This marks lines as read in WeeChat's state, updating last_read_line_id.
-  // We send it as a direct API input command rather than going through the input box.
-  if (state.ws && state.ws.readyState === WebSocket.OPEN) {
-    state.ws.send(JSON.stringify({
-      request: 'POST /api/input',
-      body: { buffer_name: 'core.weechat', command: `/buffer ${buf.name}` }
-    }));
+// Mirror read state to WeeChat without touching which buffer its own windows
+// display: "/buffer set" acts on the buffer the input is sent to, so the
+// read marker / hotlist of that buffer change and nothing else does.
+function syncReadState(left, entered) {
+  const reqs = [];
+  const cmd  = (b, command) => ({ request: 'POST /api/input', body: { buffer_name: b.name, command } });
+  if (left) {
+    if (left.type !== 'free') reqs.push(cmd(left, '/buffer set unread'));
+    reqs.push(cmd(left, '/buffer set hotlist -1'));
   }
+  reqs.push(cmd(entered, '/buffer set hotlist -1'));
+  wsSend(reqs);
 }

@@ -53,8 +53,29 @@ export function maybeNotify(buf, line, activateBufferFn) {
   };
 }
 
+// "Hot" buffers, as in weechat-android's bell: highlights, plus private
+// messages with anything unread. Ordered by buffer number.
+export function hotBuffers() {
+  return [...state.buffers.values()]
+    .filter(b => b.id !== state.activeBufferId
+      && (b.highlight > 0 || ((b.local_variables || {}).type === 'private' && b.unread > 0)))
+    .sort((a, b) => a.number - b.number);
+}
+
 export function updateTitle() {
   let total = 0;
   for (const buf of state.buffers.values()) total += buf.highlight;
   document.title = total > 0 ? `(${total}) Cathode` : 'Cathode';
+
+  const hot = hotBuffers();
+  const btn = document.getElementById('hot-btn');
+  if (btn) {
+    btn.style.display = hot.length ? '' : 'none';
+    btn.querySelector('.hot-count').textContent = hot.length;
+    btn.title = hot.length ? `Go to ${hot[0].short_name || hot[0].name}` : '';
+  }
+  // Dot on ☰: something outside the current buffer wants attention
+  const anyUnread = [...state.buffers.values()].some(b => b.id !== state.activeBufferId && b.unread > 0);
+  const dot = document.getElementById('drawer-dot');
+  if (dot) dot.className = hot.length ? 'hot' : anyUnread ? 'unread' : '';
 }

@@ -94,9 +94,16 @@ async function uploadToImgur(file, clientId) {
 
 // Call after settings load and whenever uploadBackend changes, so the
 // button doesn't sit there just to tell you it's disabled when clicked.
+export function uploadAvailable() {
+  return (state.settings.uploadBackend || 'none') !== 'none';
+}
+
+export function pickUpload() {
+  el('upload-file').click();
+}
+
 export function updateUploadButtonVisibility() {
-  const enabled = (state.settings.uploadBackend || 'none') !== 'none';
-  el('upload-btn').style.display = enabled ? '' : 'none';
+  el('upload-btn').style.display = uploadAvailable() ? '' : 'none';
 }
 
 function setUploadState(s) {

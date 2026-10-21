@@ -2,19 +2,28 @@ import { state }                                    from './state.js';
 import { initTheme, toggleTheme,
          openSettings, closeSettings,
          saveSettingsPanel, updateBackendVis,
-         checkPort, openCertPage }                  from './settings.js';
+         checkPort, openCertPage,
+         applyInlineNicks }                         from './settings.js';
 import { connect, disconnect, wsSend }              from './connection.js';
 import { toggleSmartFilter }                        from './chat.js';
 import { sendInput, onInputKey, triggerTabComplete } from './input.js';
 import { uploadFile, initDragDrop,
          updateUploadButtonVisibility }              from './upload.js';
-import { setWsSend }                                from './buffers.js';
-import { initMobileLayout, closeDrawer }            from './layout.js';
+import { initBufferList, activateBuffer,
+         renderNicklist, rebuildBufList }           from './buffers.js';
+import { initMobileLayout, closeDrawer,
+         onLongPress }                              from './layout.js';
+import { openOverflowSheet, openLineSheet,
+         openNickSheet, nickOfLine, confirmDisconnect,
+         openJoinPrompt }                           from './actions.js';
+import { hotBuffers }                               from './notifications.js';
+import { closeSheet }                               from './sheet.js';
 
 const el = id => document.getElementById(id);
 
 document.addEventListener('DOMContentLoaded', () => {
   initTheme();
+  applyInlineNicks();
 
   // ── Operator config (config.js → window.CATHODE_CONFIG) ──────────────────
   const cfg = window.CATHODE_CONFIG || {};
@@ -54,19 +63,20 @@ document.addEventListener('DOMContentLoaded', () => {
     el('tls-locked-note').style.display = '';
   }
 
-  // ── Wire wsSend into buffers (nick menu commands) ─────────────────────────
-  setWsSend(wsSend);
-
   // ── Mobile sidebar/nicklist drawers ────────────────────────────────────────
   initMobileLayout();
 
   // ── Connection ────────────────────────────────────────────────────────────
   el('connect-btn')   .addEventListener('click', connect);
-  el('disconnect-btn').addEventListener('click', disconnect);
+  el('disconnect-btn').addEventListener('click', confirmDisconnect);
   ['host','port','password'].forEach(id =>
     el(id).addEventListener('keydown', e => { if (e.key === 'Enter') connect(); })
   );
   el('port').addEventListener('input', checkPort);
+  // Certificate help only matters for wss://
+  const syncCertHelp = () => { el('cert-help').style.display = el('tls').checked ? '' : 'none'; };
+  el('tls').addEventListener('change', syncCertHelp);
+  syncCertHelp();
   el('password-toggle').addEventListener('click', () => {
     const input   = el('password');
     const showing = input.type === 'text';
@@ -84,45 +94,33 @@ document.addEventListener('DOMContentLoaded', () => {
   // ── Smart filter ──────────────────────────────────────────────────────────
   el('smartfilter-btn').addEventListener('click', toggleSmartFilter);
 
-  // ── Buffer close buttons (delegated) ─────────────────────────────────────
-  el('buffer-list').addEventListener('click', e => {
-    const btn = e.target.closest('.buf-close');
-    if (!btn) return;
-    e.stopPropagation();
-    const buf = state.buffers.get(btn.dataset.id);
-    if (!buf) return;
-    wsSend({ request: 'POST /api/input', body: { buffer_name: buf.name, command: '/close' } });
+  // ── Buffer list (filter, close buttons, long-press) and join ──────────────
+  initBufferList();
+  el('sidebar-join-btn').addEventListener('click', () => openJoinPrompt(activateBuffer));
+
+  // ── App bar (phones) ──────────────────────────────────────────────────────
+  el('overflow-btn').addEventListener('click', openOverflowSheet);
+  el('chat-titlebox').addEventListener('click', () => {
+    if (window.matchMedia('(max-width: 700px)').matches) openOverflowSheet();
+  });
+  el('hot-btn').addEventListener('click', () => {
+    const next = hotBuffers()[0];
+    if (next) activateBuffer(next.id);
   });
 
-  // ── Sidebar join button ───────────────────────────────────────────────────
-  const joinBtn   = el('sidebar-join-btn');
-  const joinInput = el('sidebar-join-input');
-
-  function openJoinInput() {
-    joinBtn.style.display   = 'none';
-    joinInput.style.display = '';
-    joinInput.value = '';
-    joinInput.focus();
-  }
-  function closeJoinInput() {
-    joinInput.style.display = 'none';
-    joinBtn.style.display   = '';
-  }
-  function submitJoin() {
-    const ch = joinInput.value.trim();
-    closeJoinInput();
-    if (!ch) return;
+  // ── Messages: tap a nick, long-press / right-click a line ─────────────────
+  el('messages').addEventListener('click', e => {
+    const pfx = e.target.closest('.msg-prefix');
+    if (!pfx) return;
+    const line = pfx.closest('.msg-row')?._line;
+    const nick = line && nickOfLine(line);
+    const buf  = state.buffers.get(state.activeBufferId);
+    if (nick && buf) openNickSheet(nick, buf, activateBuffer);
+  });
+  onLongPress(el('messages'), '.msg-row', row => {
     const buf = state.buffers.get(state.activeBufferId);
-    if (!buf) return;
-    wsSend({ request: 'POST /api/input', body: { buffer_name: buf.name, command: '/join ' + ch } });
-  }
-
-  joinBtn.addEventListener('click', openJoinInput);
-  joinInput.addEventListener('keydown', e => {
-    if (e.key === 'Enter')  { e.preventDefault(); submitJoin(); }
-    else if (e.key === 'Escape') { e.preventDefault(); closeJoinInput(); }
+    if (row._line && buf) openLineSheet(row._line, buf, activateBuffer);
   });
-  joinInput.addEventListener('blur', closeJoinInput);
 
   // ── Media preview (document-level delegation) ─────────────────────────────
   document.addEventListener('click', e => {
@@ -161,7 +159,12 @@ document.addEventListener('DOMContentLoaded', () => {
   el('theme-toggle').addEventListener('click', toggleTheme);
   window.addEventListener('cathode:themechange', () => {
     const buf = state.buffers.get(state.activeBufferId);
-    if (buf) import('./chat.js').then(m => m.renderMessages(buf));
+    // Colours are baked in at render time (light theme darkens pale ones)
+    if (buf) {
+      import('./chat.js').then(m => m.renderMessages(buf));
+      renderNicklist(buf);
+    }
+    rebuildBufList();
     if (_emojiPicker) { _emojiPicker.remove(); _emojiPicker = null; }
   });
 
@@ -227,6 +230,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // ── Global keyboard shortcuts ─────────────────────────────────────────────
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
+      closeSheet();
       closeSettings();
       closeDrawer();
       if (_emojiPicker) { _emojiPicker.remove(); _emojiPicker = null; }

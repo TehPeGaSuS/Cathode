@@ -2,7 +2,7 @@
 <html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
   <meta name="description" content="Cathode — a terminal-style web client for WeeChat">
   <link rel="icon" href="favicon.ico" sizes="32x32 16x16" type="image/x-icon">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -17,7 +17,6 @@
 
   <!-- ── Top bar ─────────────────────────────────────────────────────────── -->
   <div id="topbar">
-    <button id="sidebar-toggle" class="topbar-btn mobile-only" aria-label="Toggle buffer list">☰</button>
     <span class="logo">CATHODE<span>/irc</span></span>
     <div class="status-pill">
       <div id="status-dot" class="status-dot disconnected"></div>
@@ -26,7 +25,7 @@
     <div class="topbar-spacer"></div>
     <button id="settings-btn"   class="topbar-btn"><span class="btn-icon">⚙</span><span class="btn-label"> SETTINGS</span></button>
     <button id="theme-toggle"   class="topbar-btn"><span id="theme-icon" class="btn-icon">◐</span><span id="theme-label" class="btn-label"> LIGHT</span></button>
-    <button id="disconnect-btn" class="topbar-btn" style="display:none"><span class="btn-icon">✕</span><span class="btn-label"> QUIT</span></button>
+    <button id="disconnect-btn" class="topbar-btn" style="display:none"><span class="btn-icon">⏻</span><span class="btn-label"> DISCONNECT</span></button>
   </div>
 
   <!-- ── Connect screen ──────────────────────────────────────────────────── -->
@@ -80,13 +79,16 @@
 
         <div class="connect-actions">
           <button id="connect-btn" class="btn-primary">CONNECT</button>
-          <button id="cert-btn"    class="btn-secondary">⚠ CERT</button>
         </div>
 
-        <p class="cert-hint">
-          Using a self-signed cert? Click ⚠ CERT to open the relay URL in a new
-          tab, accept the browser warning, then return here and connect.
-        </p>
+        <details id="cert-help" class="cert-help">
+          <summary>Self-signed certificate?</summary>
+          <p class="cert-hint">
+            Open the relay URL in a new tab, accept the browser warning, then
+            come back here and connect.
+          </p>
+          <button id="cert-btn" class="btn-secondary">OPEN RELAY URL</button>
+        </details>
 
       </div>
     </div>
@@ -98,30 +100,50 @@
     <!-- Buffer sidebar -->
     <div id="sidebar">
       <div id="sidebar-header">BUFFERS</div>
+      <div id="buffer-filter-row">
+        <input id="buffer-filter" type="search" placeholder="filter buffers…" aria-label="Filter buffers"
+               spellcheck="false" autocomplete="off" autocapitalize="off" enterkeyhint="go">
+      </div>
       <div id="buffer-list"></div>
       <div id="sidebar-footer">
-        <button id="sidebar-join-btn" class="sidebar-footer-btn">＋ JOIN</button>
-        <input id="sidebar-join-input" type="text" placeholder="#channel" spellcheck="false" autocomplete="off" style="display:none">
+        <button id="sidebar-join-btn" class="sidebar-footer-btn">＋ JOIN CHANNEL</button>
       </div>
     </div>
 
     <!-- Main area -->
     <div id="main">
       <div id="chat-header">
-        <span id="chat-title"></span>
+        <button id="sidebar-toggle" class="hdr-icon mobile-only" aria-label="Buffers">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+          <span id="drawer-dot"></span>
+        </button>
+        <div id="chat-titlebox">
+          <span id="chat-title"></span>
+          <span id="chat-sub"></span>
+        </div>
         <span id="chat-topic"></span>
-        <button id="smartfilter-btn" class="header-btn" style="display:none">FILTER: ON</button>
-        <button id="nicklist-toggle" class="header-btn mobile-only" aria-label="Toggle nick list">NICKS</button>
+        <button id="hot-btn" class="hot-btn" style="display:none" aria-label="Go to next highlighted buffer">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15zM10 20.5a2 2 0 0 0 4 0"/></svg>
+          <span class="hot-count">0</span>
+        </button>
+        <button id="smartfilter-btn" class="header-btn" style="display:none">JOIN/PART: HIDDEN</button>
+        <button id="nicklist-toggle" class="hdr-icon mobile-only" aria-label="Users">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 19c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><path d="M16 5a3 3 0 0 1 0 6M18 13.8c1.9.7 3 2.5 3 5.2"/></svg>
+        </button>
+        <button id="overflow-btn" class="hdr-icon mobile-only" aria-label="More actions">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg>
+        </button>
       </div>
+      <div id="conn-strip" role="status"></div>
       <div id="messages"></div>
       <div id="inputbar">
         <span id="input-prompt">›</span>
-        <input id="chat-input" type="text" placeholder="type a message or /command" autocomplete="off" spellcheck="false">
+        <input id="chat-input" type="text" placeholder="message or /command" autocomplete="off" spellcheck="false" enterkeyhint="send">
         <button id="emoji-btn" class="inputbar-btn" title="Emoji picker" aria-label="Emoji picker">😊</button>
-        <button id="tab-complete-btn" class="inputbar-btn mobile-only" title="Complete nick/channel" aria-label="Complete nick or channel">→|</button>
+        <button id="tab-complete-btn" class="inputbar-btn mobile-only" title="Complete nick/channel" aria-label="Complete nick or channel">TAB</button>
         <button id="upload-btn" class="inputbar-btn" title="Upload file" aria-label="Upload file">📎</button>
         <input id="upload-file" type="file" style="display:none">
-        <button id="send-btn">SEND</button>
+        <button id="send-btn" aria-label="Send"><span class="send-label">SEND</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12l16-8-6 16-2.5-6.5z"/></svg></button>
       </div>
     </div>
 
@@ -190,6 +212,11 @@
         <label for="s-prefix-max">PREFIX ALIGN MAX (weechat.look.prefix_align_max)</label>
         <input id="s-prefix-max" type="number" min="4" max="64" value="16">
       </div>
+
+      <label class="checkbox-row">
+        <input id="s-inline-nicks" type="checkbox">
+        INLINE NICKS ON PHONES (more room for text)
+      </label>
 
       <div class="settings-actions">
         <button id="settings-save" class="btn-primary">SAVE</button>

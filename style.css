@@ -437,6 +437,12 @@ a:hover { text-decoration: underline; }
   background: #1a1000;
   border-left: 3px solid #c8920a;
 }
+.cert-help { margin-top: 2px; font-size: 11px; color: var(--fg-dim); }
+.cert-help summary { cursor: pointer; padding: 6px 0; list-style: none; }
+.cert-help summary::-webkit-details-marker { display: none; }
+.cert-help summary::before { content: '▸ '; }
+.cert-help[open] summary::before { content: '▾ '; }
+.cert-help .cert-hint { margin: 6px 0 10px; }
 [data-theme="light"] .cert-hint {
   color: #7a5200;
   border-color: #e0b040;
@@ -517,20 +523,6 @@ a:hover { text-decoration: underline; }
   color: var(--fg);
   background: var(--bg-hover);
 }
-#sidebar-join-input {
-  width: 100%;
-  box-sizing: border-box;
-  background: var(--bg-input);
-  border: 1px solid var(--border-l);
-  color: var(--fg);
-  font-family: inherit;
-  font-size: 12px;
-  padding: 5px 6px;
-}
-#sidebar-join-input:focus {
-  outline: none;
-  border-color: var(--fg-dim);
-}
 
 .buffer-item {
   display: flex;
@@ -582,8 +574,10 @@ a:hover { text-decoration: underline; }
   font-weight: 600;
 }
 
-/* Channel/private rows indented under server */
-.buffer-item.buf-indented {
+/* Channel/private rows indented under server; the server row itself uses
+   the same inset so all the buffer numbers line up */
+.buffer-item.buf-indented,
+.buffer-item.buf-server {
   padding-left: 20px;
 }
 .buffer-item.buf-indented .buf-num {
@@ -859,50 +853,136 @@ a:hover { text-decoration: underline; }
   white-space: nowrap;
 }
 
-/* ─── Nick context menu ──────────────────────────────────────────────────── */
-.nick-overlay {
+/* ─── Action sheets (bottom sheet on phones, dialog on desktop) ─────────── */
+.sheet-overlay {
   position: fixed;
   inset: 0;
   z-index: 1000;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 16px;
   background: rgba(0,0,0,0.5);
 }
-[data-theme="light"] .nick-overlay { background: rgba(0,0,0,0.2); }
+[data-theme="light"] .sheet-overlay { background: rgba(0,0,0,0.25); }
 
-.nick-menu {
+.sheet {
   background: var(--bg-panel);
   border: 1px solid var(--border-l);
-  min-width: 210px;
+  width: 100%;
+  max-width: 360px;
+  max-height: 80vh;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
+.sheet-handle { display: none; }
 
-.nick-menu-hdr {
-  padding: 10px 16px;
+.sheet-hdr {
+  padding: 12px 16px 10px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.sheet-title {
   font-size: 12px;
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   color: var(--accent-hl);
-  border-bottom: 1px solid var(--border);
-  user-select: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
+.sheet-sub {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--fg-dim);
+  max-height: 7.5em;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+}
+.sheet-meta { color: var(--fg-dimmer); font-size: 11px; }
 
-.nick-menu-btn {
+.sheet-items { overflow-y: auto; }
+.sheet-sep { height: 1px; background: var(--border); margin: 4px 0; }
+
+.sheet-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
   background: none;
   border: none;
-  border-bottom: 1px solid var(--border);
-  color: var(--fg-dim);
+  color: var(--fg);
   font-family: inherit;
   font-size: 12px;
-  padding: 9px 16px;
   text-align: left;
+  padding: 9px 16px;
   cursor: pointer;
-  transition: background 0.1s, color 0.1s;
+  transition: background 0.1s;
 }
-.nick-menu-btn:last-child { border-bottom: none; }
-.nick-menu-btn:hover { background: var(--bg-hover); color: var(--fg); }
+.sheet-item:hover:not(:disabled),
+.sheet-item:focus-visible { background: var(--bg-hover); outline: none; }
+.sheet-item:disabled { opacity: 0.4; cursor: default; }
+.sheet-item.danger { color: var(--status-disc); }
+.sheet-icon {
+  width: 18px;
+  flex-shrink: 0;
+  text-align: center;
+  color: var(--fg-dim);
+}
+.sheet-item.danger .sheet-icon { color: inherit; }
+.sheet-icon:empty { display: none; }
+.sheet-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sheet-hint { color: var(--fg-dimmer); font-size: 11px; }
+
+/* On/off switch for toggle items */
+.sheet-switch {
+  width: 30px;
+  height: 16px;
+  border: 1px solid var(--border-l);
+  position: relative;
+  flex-shrink: 0;
+}
+.sheet-switch::after {
+  content: '';
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 10px; height: 10px;
+  background: var(--fg-dim);
+  transition: left 0.15s, background 0.15s;
+}
+.sheet-switch.on { border-color: var(--fg-dim); }
+.sheet-switch.on::after { left: 16px; background: var(--fg); }
+
+.sheet-form {
+  padding: 14px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.sheet-form input,
+.sheet-form select {
+  width: 100%;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  color: var(--fg);
+  font-family: inherit;
+  font-size: 13px;
+  padding: 8px 10px;
+  outline: none;
+}
+.sheet-form input:focus,
+.sheet-form select:focus { border-color: var(--fg-dim); }
+.sheet-field-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--fg-dim);
+}
+.sheet-form-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.btn-primary.btn-danger { background: var(--status-disc); border-color: var(--status-disc); color: #fff; }
 
 /* ─── Input bar ──────────────────────────────────────────────────────────── */
 #inputbar {
@@ -1092,15 +1172,82 @@ a:hover { text-decoration: underline; }
 #footer a { color: var(--fg-dimmer); }
 #footer a:hover { color: var(--fg-dim); }
 
+/* ─── Chat-screen pieces shared by both layouts ─────────────────────────── */
+body.chat-mode #footer { display: none; }   /* credits live on the connect screen */
+
+#chat-titlebox {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  flex-shrink: 0;
+}
+#chat-sub { display: none; }
+
+/* Bell: jumps to the next buffer with a highlight / unread private message */
+.hot-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: 1px solid var(--highlight);
+  color: var(--highlight);
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 7px;
+  cursor: pointer;
+  flex-shrink: 0;
+  align-self: center;
+}
+.hot-btn svg { width: 13px; height: 13px; }
+.hot-btn + .header-btn { margin-left: 0; }
+#chat-topic + .hot-btn { margin-left: auto; }
+
+.hdr-icon svg, .hot-btn svg, #send-btn svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+#send-btn svg { display: none; width: 20px; height: 20px; }
+
+#conn-strip { display: none; }
+
+#buffer-filter-row {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+#buffer-filter {
+  width: 100%;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  color: var(--fg);
+  font-family: inherit;
+  font-size: 12px;
+  padding: 4px 6px;
+  outline: none;
+}
+#buffer-filter:focus { border-color: var(--fg-dim); }
+#buffer-filter::placeholder { color: var(--fg-dimmer); }
+
 /* ─── Responsive ─────────────────────────────────────────────────────────── */
 
 /* Buttons that only make sense once the sidebar/nicklist become drawers */
 .mobile-only { display: none; }
 
-/* Buffer-row close (×) and copy-link etc. rely on :hover to appear, which
-   doesn't exist on touch — always show them when there's no hover input. */
+/* Touch screens: no hover, so no hover-only × on buffer rows — closing is in
+   the long-press menu instead, away from where a tap opens the buffer.
+   Long-press opens line/buffer menus, so don't start a text selection. */
 @media (hover: none) {
-  .buf-close { opacity: 1; }
+  .buf-close { display: none; }
+  .msg-row, .buffer-item, .nick-item {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
 }
 
 @media (max-width: 700px) {
@@ -1109,6 +1256,9 @@ a:hover { text-decoration: underline; }
     align-items: center;
     justify-content: center;
   }
+
+  /* On the chat screen the per-buffer app bar replaces the top bar */
+  body.chat-mode #topbar { display: none; }
 
   #drawer-backdrop {
     display: none;
@@ -1123,53 +1273,219 @@ a:hover { text-decoration: underline; }
      columns, so the message view gets the full screen width. */
   #sidebar, #nicklist-panel {
     position: fixed;
-    top: 36px; /* below the topbar */
+    top: 0;
     bottom: 0;
     z-index: 150;
     transition: transform 0.2s ease;
-    box-shadow: 0 0 24px rgba(0, 0, 0, 0.5);
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
   }
-
   #sidebar {
     left: 0;
-    width: min(260px, 80vw);
+    width: min(300px, 85vw);
     transform: translateX(-100%);
   }
+  /* Shadow only while open — off-screen it would bleed onto the edges */
+  #sidebar.open, #nicklist-panel.open { box-shadow: 0 0 24px rgba(0, 0, 0, 0.5); }
   #sidebar.open { transform: translateX(0); }
-
   #nicklist-panel {
     right: 0;
-    width: min(220px, 80vw);
+    width: min(260px, 80vw);
     transform: translateX(100%);
   }
   #nicklist-panel.open { transform: translateX(0); }
 
-  .msg-prefix { width: 90px; }
+  /* ── App bar ── */
+  #chat-header {
+    align-items: center;
+    gap: 0;
+    padding: 0 2px;
+    padding-top: env(safe-area-inset-top);
+    min-height: calc(52px + env(safe-area-inset-top));
+  }
+  .hdr-icon {
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    color: var(--fg-dim);
+    cursor: pointer;
+    position: relative;
+  }
+  .hdr-icon svg { width: 22px; height: 22px; }
+  .hdr-icon:active { background: var(--bg-hover); color: var(--fg); }
+  #drawer-dot {
+    position: absolute;
+    top: 9px;
+    right: 8px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: none;
+  }
+  #drawer-dot.unread { display: block; background: var(--fg-dim); }
+  #drawer-dot.hot    { display: block; background: var(--highlight); }
 
-  /* Denser text on mobile, closer to weechat-android's compact size —
-     desktop-sized text wastes screen space on a phone. */
-  .msg-row      { font-size: 12px; line-height: 1.4; }
+  #chat-titlebox {
+    flex: 1;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
+    padding: 4px 6px;
+    cursor: pointer;
+    min-height: 44px;
+    justify-content: center;
+  }
+  #chat-title {
+    font-size: 15px;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  #chat-sub {
+    display: block;
+    font-size: 11px;
+    color: var(--fg-dim);
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  #chat-sub:empty { display: none; }
+  #chat-topic, #smartfilter-btn { display: none !important; }   /* both live in the ⋮ sheet */
+
+  .hot-btn {
+    height: 32px;
+    padding: 0 8px;
+    margin: 0 4px;
+    font-size: 12px;
+  }
+  .hot-btn svg { width: 16px; height: 16px; }
+
+  #conn-strip.show {
+    display: block;
+    padding: 6px 12px;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-align: center;
+    background: var(--bg-active);
+    color: var(--fg-dim);
+    border-bottom: 1px solid var(--border);
+  }
+  #conn-strip.show.disconnected { color: var(--status-disc); }
+
+  /* ── Buffer list / nicklist: finger-sized rows ── */
+  #sidebar-header, #nicklist-header { padding: 12px 14px; }
+  #buffer-filter { font-size: 16px; padding: 8px 10px; }   /* 16px: no iOS zoom */
+  .buffer-item  { font-size: 14px; min-height: 44px; padding: 6px 14px; }
+  .buffer-item.buf-server { font-size: 13px; }
+  .buffer-item.buf-indented,
+  .buffer-item.buf-server { padding-left: 22px; }   /* numbers line up */
+  .buf-num { font-size: 11px; width: 20px; }
+  .badge { font-size: 11px; padding: 2px 7px; }
+  .buf-group-header { padding: 12px 14px 4px; }
+  .sidebar-footer-btn { padding: 12px 0; font-size: 12px; }
+  #sidebar-footer { padding: 8px; }
+  .nick-item { font-size: 14px; min-height: 40px; padding: 4px 14px; gap: 6px; }
+
+  /* ── Messages ── */
+  .msg-row      { font-size: 12px; line-height: 1.4; padding: 2px 10px; }
   .msg-time     { width: 50px; font-size: 10px; }
-  #chat-title   { font-size: 12px; }
-  #chat-topic   { font-size: 10px; }
-  .buffer-item  { font-size: 11px; }
-  .nick-item    { font-size: 11px; }
+  .msg-prefix   { width: 90px; }
+  .msg-row:hover { background: none; }
+  .msg-row.msg-highlight:hover { background: var(--hl-bg); }
 
-  /* Trim the topbar down to icons-only + the status dot — there's no room
-     for full button labels and status text on a phone-width screen. */
-  #topbar { gap: 6px; padding: 0 10px; }
-  #topbar .logo span { display: none; }        /* hides the "/irc" subtitle */
-  #status-text        { display: none; }
-  .topbar-btn .btn-label { display: none; }
-  .topbar-btn { padding: 4px 8px; }
+  /* Inline nicks (setting, on by default): "12:01 alice text…" wrapping
+     under the whole width, like most phone chat apps and weechat-android */
+  body.inline-nicks .msg-row { display: block; }
+  body.inline-nicks .msg-time {
+    display: inline;
+    width: auto;
+    padding-right: 6px;
+  }
+  body.inline-nicks .msg-prefix {
+    display: inline;
+    width: auto;
+    text-align: left;
+    padding-right: 6px;
+    font-weight: 600;
+  }
+  body.inline-nicks .msg-sep { display: none; }
+  body.inline-nicks .msg-text { display: inline; }
+  body.inline-nicks .msg-cont .msg-time,
+  body.inline-nicks .msg-cont .msg-prefix { display: none; }
+
+  .new-msg-banner { bottom: calc(60px + env(safe-area-inset-bottom)); }
+
+  /* ── Input bar ── */
+  #inputbar {
+    height: auto;
+    min-height: 52px;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  #input-prompt { display: none; }
+  #chat-input {
+    font-size: 16px;           /* 16px: iOS doesn't zoom on focus */
+    padding: 0 12px;
+    min-height: 52px;
+  }
+  .inputbar-btn, #send-btn {
+    min-width: 48px;
+    height: 52px;
+    border-left: none;
+    padding: 0 10px;
+  }
+  #upload-btn { order: -1; }   /* attach on the left, send on the right */
+  #tab-complete-btn { font-size: 11px; letter-spacing: 0.1em; font-family: inherit; }
+  #send-btn .send-label { display: none; }
+  #send-btn svg { display: block; margin: 0 auto; }
+  #send-btn { color: var(--fg); }
 
   /* Mobile keyboards have their own native emoji picker — the bundled one
      just takes up inputbar space that's better spent on tab-complete,
      which mobile keyboards have no equivalent for. */
   #emoji-btn { display: none; }
+
+  /* ── Sheets slide up from the bottom ── */
+  .sheet-overlay { align-items: flex-end; padding: 0; }
+  .sheet {
+    max-width: none;
+    max-height: 85vh;
+    border: none;
+    border-top: 1px solid var(--border-l);
+    padding-bottom: env(safe-area-inset-bottom);
+    animation: sheet-up 0.18s ease-out;
+  }
+  .sheet-handle {
+    display: block;
+    width: 36px;
+    height: 4px;
+    margin: 8px auto 0;
+    background: var(--border-l);
+    flex-shrink: 0;
+  }
+  .sheet-title { font-size: 14px; }
+  .sheet-sub   { font-size: 13px; }
+  .sheet-item  { font-size: 15px; min-height: 50px; padding: 0 20px; gap: 16px; }
+  .sheet-icon  { font-size: 16px; }
+  .sheet-form input, .sheet-form select { font-size: 16px; padding: 10px 12px; }
+  .sheet-form-actions .btn-primary,
+  .sheet-form-actions .btn-secondary { min-height: 44px; flex: 1; }
+
+  /* Connect screen top bar: logo, status dot and icon buttons */
+  #topbar { gap: 6px; padding: 0 10px; height: 48px; padding-top: env(safe-area-inset-top); height: calc(48px + env(safe-area-inset-top)); }
+  #topbar .logo span { display: none; }        /* hides the "/irc" subtitle */
+  #status-text        { display: none; }
+  .topbar-btn .btn-label { display: none; }
+  .topbar-btn { min-width: 40px; min-height: 36px; }
+  .connect-actions button { min-height: 44px; }
+  .field input { font-size: 16px; }
 }
 
+@keyframes sheet-up { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
 @media (max-width: 480px) {
-  #sidebar { width: min(220px, 80vw); }
   .msg-prefix { width: 70px; }
 }

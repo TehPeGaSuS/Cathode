@@ -1,6 +1,7 @@
 import { state, saveSettings, BLOCKED_PORTS } from './state.js';
 import { applyPrefixWidth } from './chat.js';
 import { updateUploadButtonVisibility } from './upload.js';
+import { overlayOpened, overlayClosed } from './layout.js';
 
 const el = id => document.getElementById(id);
 
@@ -34,12 +35,25 @@ export function openSettings() {
   el('s-filehost-url').value   = s.filehostUrl   || '';
   el('s-imgur-key').value      = s.imgurClientId || '';
   el('s-prefix-max').value     = s.prefixAlignMax || state.prefixAlignMax;
+  el('s-inline-nicks').checked = s.inlineNicks !== false;
   updateBackendVis();
   el('settings-overlay').style.display = '';
+  overlayOpened('settings', hideSettings);
+}
+
+function hideSettings() {
+  el('settings-overlay').style.display = 'none';
 }
 
 export function closeSettings() {
-  el('settings-overlay').style.display = 'none';
+  if (el('settings-overlay').style.display === 'none') return;
+  hideSettings();
+  overlayClosed('settings');
+}
+
+// Phones: nick inline before the text instead of a right-aligned column
+export function applyInlineNicks() {
+  document.body.classList.toggle('inline-nicks', state.settings.inlineNicks !== false);
 }
 
 export function saveSettingsPanel() {
@@ -52,6 +66,8 @@ export function saveSettingsPanel() {
     state.prefixAlignMax          = pm;
     applyPrefixWidth();
   }
+  state.settings.inlineNicks = el('s-inline-nicks').checked;
+  applyInlineNicks();
   saveSettings();
   updateUploadButtonVisibility();
   closeSettings();

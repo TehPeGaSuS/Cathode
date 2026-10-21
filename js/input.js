@@ -1,4 +1,6 @@
 import { state } from './state.js';
+import { rewriteOpeningCommand } from './actions.js';
+import { activateBuffer } from './buffers.js';
 
 const el = id => document.getElementById(id);
 
@@ -42,7 +44,10 @@ export function sendInput(wsSend) {
   hist.pos    = -1;
   tab.matches = [];
   tab.pos     = -1;
-  wsSend({ request: 'POST /api/input', body: { buffer_name: buf.name, command: text } });
+  // /join and /query get -noswitch so WeeChat's own window doesn't move;
+  // Cathode switches to the new buffer itself once it opens.
+  const command = rewriteOpeningCommand(text, buf, activateBuffer);
+  wsSend({ request: 'POST /api/input', body: { buffer_name: buf.name, command } });
   el('chat-input').value = '';
 }
 

@@ -3,8 +3,8 @@ import { initNotifications } from './notifications.js';
 import { applyPrefixWidth, sysMsg } from './chat.js';
 import {
   onBufOpened, onBufUpdated, onBufCleared, onBufClosed,
-  onLineAdded, onNickAdded, onNickRemoved, onGroupChanged,
-  collectNicks, rebuildBufList, activateBuffer, clearBufList,
+  onLineAdded, onLineChanged, onNickAdded, onNickRemoved, onGroupChanged,
+  onBufNumbers, collectNicks, rebuildBufList, activateBuffer, clearBufList,
 } from './buffers.js';
 
 const el = id => document.getElementById(id);
@@ -17,6 +17,11 @@ const reconnect = {
 };
 const MAX_BACKOFF  = 30_000;
 const INITIAL_BACKOFF = 1_000;
+
+// Periodic POST /api/ping so idle reverse proxies (nginx proxy_read_timeout,
+// etc.) don't drop a quiet connection.
+const PING_INTERVAL = 60_000;
+let pingTimer = null;
 
 // ─── Float-safe ID parser ─────────────────────────────────────────────────────
 // The relay sometimes sends buffer IDs as JSON floats (e.g. 1709932823649184.0).
@@ -119,6 +124,7 @@ function connectTo(host, port, pass, tls) {
 
   ws.onclose = () => {
     clearTimeout(timer);
+    stopPing();
     if (state.connected) {
       onDisconnected(/* userInitiated */ false);
       if (reconnect.enabled) scheduleReconnect(host, port, pass, tls);
@@ -145,28 +151,61 @@ function clearReconnectTimer() {
 export function disconnect() {
   reconnect.enabled = false;
   clearReconnectTimer();
-  wsSend({ request: 'DELETE /api/sync' });
+  // There is no "DELETE /api/sync" route; closing the socket (done in
+  // onDisconnected) is enough for the relay to drop the sync.
   onDisconnected(/* userInitiated */ true);
 }
 
+function startPing() {
+  stopPing();
+  pingTimer = setInterval(() => wsSend({ request: 'POST /api/ping' }), PING_INTERVAL);
+}
+
+function stopPing() {
+  if (pingTimer) { clearInterval(pingTimer); pingTimer = null; }
+}
+
 // ─── Auth ─────────────────────────────────────────────────────────────────────
+// WeeChat base64url-decodes this and compares the bytes against the UTF-8
+// password, so encode as UTF-8 first (btoa alone throws on non-Latin-1 chars
+// and encodes Latin-1 chars as single bytes).
 function buildAuth(pw) {
-  return btoa('plain:' + pw).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+  const bytes = new TextEncoder().encode('plain:' + pw);
+  let bin = '';
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
 }
 
 // ─── Message dispatch ─────────────────────────────────────────────────────────
 function dispatch(msg) {
   if (!msg) return;
   if (msg.code === 0 && msg.event_name) { handleEvent(msg); return; }
+  if (msg.code >= 400) { handleError(msg); return; }
   if (msg.request_id === 'init' && msg.body_type === 'buffers') { handleInit(msg); return; }
+  if (msg.request_id === 'numbers' && msg.body_type === 'buffers') { onBufNumbers(msg.body); return; }
+}
+
+function handleError(msg) {
+  const detail = (msg.body && msg.body.error) || msg.message || 'error';
+  sysMsg(null, `✗ ${msg.request || 'request'}: ${detail} (${msg.code})`);
+}
+
+// Buffer numbers shift without any event when a buffer is closed (WeeChat
+// renumbers the following buffers silently), so re-read them.
+function refreshNumbers() {
+  wsSend({ request: 'GET /api/buffers', request_id: 'numbers' });
 }
 
 function handleEvent(msg) {
   switch (msg.event_name) {
     case 'buffer_opened':           onBufOpened(msg.body); break;
-    case 'buffer_closed':           onBufClosed(msg.buffer_id); break;
+    case 'buffer_closed':           onBufClosed(msg.buffer_id); refreshNumbers(); break;
     case 'buffer_renamed':
     case 'buffer_title_changed':
+    case 'buffer_modes_changed':
+    case 'buffer_type_changed':
+    case 'buffer_time_for_each_line_changed':
+    case 'buffer_prefix_for_each_line_changed':
     case 'buffer_localvar_added':
     case 'buffer_localvar_changed':
     case 'buffer_localvar_removed':
@@ -177,11 +216,13 @@ function handleEvent(msg) {
     case 'buffer_unhidden':         onBufUpdated(msg.body); break;
     case 'buffer_cleared':          onBufCleared(msg.buffer_id); break;
     case 'buffer_line_added':       onLineAdded(msg.buffer_id, msg.body); break;
+    case 'buffer_line_data_changed': onLineChanged(msg.buffer_id, msg.body); break;
     case 'nicklist_nick_added':
     case 'nicklist_nick_changed':   onNickAdded(msg.buffer_id, msg.body); break;
     case 'nicklist_nick_removing':  onNickRemoved(msg.buffer_id, msg.body); break;
     case 'nicklist_group_added':
-    case 'nicklist_group_changed':  onGroupChanged(msg.buffer_id); break;
+    case 'nicklist_group_changed':
+    case 'nicklist_group_removing': onGroupChanged(msg.buffer_id); break;
     case 'upgrade':                 sysMsg(null, '⟳ WeeChat upgrading…'); break;
     case 'upgrade_ended':           sysMsg(null, '✓ WeeChat upgrade complete.'); break;
     // Let the socket's own onclose handler run the normal close/reconnect
@@ -196,14 +237,21 @@ function handleEvent(msg) {
 function onConnected() {
   setStatus('connected', 'CONNECTED');
   initNotifications();
+  // input: false — Cathode has its own input box; without it every keystroke
+  // typed in the WeeChat terminal sends a full buffer object here.
   wsSend([
     { request: 'GET /api/buffers?lines=-200&nicks=true&colors=ansi', request_id: 'init' },
-    { request: 'POST /api/sync', body: { nicks: true, colors: 'ansi' } }
+    { request: 'POST /api/sync', body: { nicks: true, input: false, colors: 'ansi' } }
   ]);
+  startPing();
 }
 
 function handleInit(msg) {
+  // On auto-reconnect, come back to the buffer the user was on.
+  const prevActive = state.buffers.get(state.activeBufferId);
+  const prevName   = prevActive ? prevActive.name : null;
   state.buffers.clear();
+  state.activeBufferId = null;
   const cfg = window.CATHODE_CONFIG || {};
   if (cfg.prefixAlignMax) {
     state.prefixAlignMax          = cfg.prefixAlignMax;
@@ -217,7 +265,7 @@ function handleInit(msg) {
     // Use parseId to handle float IDs from the relay
     const id = parseId(buf.id) ?? buf.id;
     state.buffers.set(id, { ...buf, id, lines: buf.lines||[], nicks, unread:0, highlight:0,
-      lastReadId: buf.last_read_line_id ? parseId(buf.last_read_line_id) : null });
+      ...readMarker(buf) });
     if (!state.smartFilter.has(id)) state.smartFilter.set(id, true);
   }
   setConnecting(false);
@@ -227,8 +275,20 @@ function handleInit(msg) {
   rebuildBufList();
   state.scroll.pinned   = true;
   state.scroll.newCount = 0;
-  const first = state.buffers.keys().next().value;
+  const prev  = prevName && [...state.buffers.values()].find(b => b.name === prevName);
+  const first = prev ? prev.id : state.buffers.keys().next().value;
   if (first != null) activateBuffer(first);
+}
+
+// "last_read_line_id" is -1 when there's no read marker; "first_line_not_read"
+// then tells whether nothing has been read yet (marker before the first line)
+// or everything has.
+export function readMarker(buf) {
+  const id = buf.last_read_line_id;
+  return {
+    lastReadId:       (id != null && id !== -1 && id !== '-1') ? parseId(id) : null,
+    firstLineNotRead: !!buf.first_line_not_read,
+  };
 }
 
 export function onDisconnected(userInitiated = true) {
@@ -269,9 +329,14 @@ function setConnecting(on) {
 function setStatus(s, text) {
   el('status-dot').className    = 'status-dot ' + s;
   el('status-text').textContent = text;
+  // Phones hide the top bar on the chat screen; this strip carries the state
+  const strip = el('conn-strip');
+  strip.textContent = s === 'connected' ? '' : text;
+  strip.className   = s === 'connected' ? '' : 'show ' + s;
 }
 
 function showScreen(name) {
   el('connect-screen').style.display = name === 'connect' ? '' : 'none';
   el('chat-screen').style.display    = name === 'chat'    ? '' : 'none';
+  document.body.classList.toggle('chat-mode', name === 'chat');
 }
